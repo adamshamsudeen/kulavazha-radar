@@ -1,0 +1,316 @@
+{
+ "places": [
+  {
+   "id": "alappuzha_jetty",
+   "en": "Alappuzha Boat Jetty",
+   "ml": "ആലപ്പുഴ ബോട്ട് ജെട്ടി",
+   "aliases": [
+    "alappuzha",
+    "alleppey",
+    "ആലപ്പുഴ",
+    "boat jetty",
+    "ബോട്ട് ജെട്ടി"
+   ],
+   "lat": 9.4985,
+   "lng": 76.3405
+  },
+  {
+   "id": "punnamada",
+   "en": "Punnamada (Nehru Trophy finish)",
+   "ml": "പുന്നമട",
+   "aliases": [
+    "punnamada",
+    "പുന്നമട",
+    "nehru trophy",
+    "നെഹ്റു ട്രോഫി",
+    "finishing point"
+   ],
+   "lat": 9.5135,
+   "lng": 76.3475
+  },
+  {
+   "id": "pallathuruthy",
+   "en": "Pallathuruthy Bridge",
+   "ml": "പള്ളാത്തുരുത്തി",
+   "aliases": [
+    "pallathuruthy",
+    "പള്ളാത്തുരുത്തി"
+   ],
+   "lat": 9.4735,
+   "lng": 76.3585
+  },
+  {
+   "id": "kainakary",
+   "en": "Kainakary Jetty",
+   "ml": "കൈനകരി",
+   "aliases": [
+    "kainakary",
+    "kainakari",
+    "കൈനകരി"
+   ],
+   "lat": 9.4905,
+   "lng": 76.3815
+  },
+  {
+   "id": "r_block",
+   "en": "R-Block Kayal",
+   "ml": "ആർ ബ്ലോക്ക് കായൽ",
+   "aliases": [
+    "r block",
+    "r-block",
+    "ആർ ബ്ലോക്ക്"
+   ],
+   "lat": 9.5235,
+   "lng": 76.3905
+  },
+  {
+   "id": "c_block",
+   "en": "C-Block Kayal",
+   "ml": "സി ബ്ലോക്ക് കായൽ",
+   "aliases": [
+    "c block",
+    "c-block",
+    "സി ബ്ലോക്ക്"
+   ],
+   "lat": 9.5425,
+   "lng": 76.3765
+  },
+  {
+   "id": "nedumudi",
+   "en": "Nedumudi",
+   "ml": "നെടുമുടി",
+   "aliases": [
+    "nedumudi",
+    "നെടുമുടി"
+   ],
+   "lat": 9.4415,
+   "lng": 76.4045
+  },
+  {
+   "id": "champakulam",
+   "en": "Champakulam",
+   "ml": "ചമ്പക്കുളം",
+   "aliases": [
+    "champakulam",
+    "ചമ്പക്കുളം"
+   ],
+   "lat": 9.4175,
+   "lng": 76.4135
+  },
+  {
+   "id": "kavalam",
+   "en": "Kavalam",
+   "ml": "കാവാലം",
+   "aliases": [
+    "kavalam",
+    "കാവാലം"
+   ],
+   "lat": 9.4745,
+   "lng": 76.4505
+  },
+  {
+   "id": "pathiramanal",
+   "en": "Pathiramanal Island",
+   "ml": "പാതിരാമണൽ",
+   "aliases": [
+    "pathiramanal",
+    "പാതിരാമണൽ"
+   ],
+   "lat": 9.6185,
+   "lng": 76.3895
+  },
+  {
+   "id": "muhamma",
+   "en": "Muhamma Jetty",
+   "ml": "മുഹമ്മ",
+   "aliases": [
+    "muhamma",
+    "മുഹമ്മ"
+   ],
+   "lat": 9.6035,
+   "lng": 76.3625
+  },
+  {
+   "id": "kumarakom",
+   "en": "Kumarakom",
+   "ml": "കുമരകം",
+   "aliases": [
+    "kumarakom",
+    "കുമരകം"
+   ],
+   "lat": 9.6145,
+   "lng": 76.4245
+  },
+  {
+   "id": "thanneermukkom",
+   "en": "Thanneermukkom Bund",
+   "ml": "തണ്ണീർമുക്കം ബണ്ട്",
+   "aliases": [
+    "thanneermukkom",
+    "തണ്ണീർമുക്കം",
+    "bund",
+    "ബണ്ട്"
+   ],
+   "lat": 9.6765,
+   "lng": 76.3935
+  },
+  {
+   "id": "vaikom",
+   "en": "Vaikom Jetty",
+   "ml": "വൈക്കം",
+   "aliases": [
+    "vaikom",
+    "വൈക്കം"
+   ],
+   "lat": 9.7445,
+   "lng": 76.3865
+  }
+ ],
+ "ferry_routes": [
+  {
+   "id": "alp_ktm",
+   "en": "Alappuzha – Kottayam ferry",
+   "ml": "ആലപ്പുഴ–കോട്ടയം",
+   "path": [
+    [
+     9.4985,
+     76.3405
+    ],
+    [
+     9.5045,
+     76.36
+    ],
+    [
+     9.5105,
+     76.388
+    ],
+    [
+     9.523,
+     76.415
+    ],
+    [
+     9.542,
+     76.455
+    ],
+    [
+     9.564,
+     76.485
+    ],
+    [
+     9.583,
+     76.51
+    ]
+   ]
+  },
+  {
+   "id": "alp_kvl",
+   "en": "Alappuzha – Kavalam ferry",
+   "ml": "ആലപ്പുഴ–കാവാലം",
+   "path": [
+    [
+     9.4985,
+     76.3405
+    ],
+    [
+     9.484,
+     76.364
+    ],
+    [
+     9.476,
+     76.39
+    ],
+    [
+     9.474,
+     76.42
+    ],
+    [
+     9.4745,
+     76.4505
+    ]
+   ]
+  },
+  {
+   "id": "muh_kmk",
+   "en": "Muhamma – Kumarakom ferry",
+   "ml": "മുഹമ്മ–കുമരകം",
+   "path": [
+    [
+     9.6035,
+     76.3625
+    ],
+    [
+     9.608,
+     76.39
+    ],
+    [
+     9.612,
+     76.41
+    ],
+    [
+     9.6145,
+     76.4245
+    ]
+   ]
+  },
+  {
+   "id": "vkm_tvk",
+   "en": "Vaikom – Thavanakkadavu ferry",
+   "ml": "വൈക്കം–തവണക്കടവ്",
+   "path": [
+    [
+     9.7445,
+     76.3865
+    ],
+    [
+     9.742,
+     76.365
+    ],
+    [
+     9.74,
+     76.348
+    ]
+   ]
+  }
+ ],
+ "sizes": {
+  "small": {
+   "en": "Small",
+   "ml": "ചെറിയ",
+   "area_m2": 150
+  },
+  "medium": {
+   "en": "Medium",
+   "ml": "ഇടത്തരം",
+   "area_m2": 600
+  },
+  "large": {
+   "en": "Large",
+   "ml": "വലിയ",
+   "area_m2": 2000
+  },
+  "huge": {
+   "en": "Very large",
+   "ml": "വളരെ വലിയ",
+   "area_m2": 5000
+  }
+ },
+ "assumptions": {
+  "wet_kg_per_m2": 20,
+  "dry_matter_fraction": 0.08,
+  "pellet_kg_per_dry_kg": 2.0,
+  "harvest_rs_per_wet_t": 1200,
+  "pellet_rs_per_kg": 18,
+  "pilot_target_wet_t": 100,
+  "windage": 0.03,
+  "ferry_alert_m": 900,
+  "mushroom_kg_per_dry_kg": 0.75,
+  "notes": {
+   "wet_kg_per_m2": "Dense mats ~20 kg/m2 fresh; scattered 5-10",
+   "dry_matter_fraction": "Measured 8.3-9% dry matter",
+   "pellet_kg_per_dry_kg": "Substrate pellets at a 50:50 blend with rubberwood sawdust (pure hyacinth ~1.05 kg per dry kg)",
+   "mushroom_kg_per_dry_kg": "Oyster mushroom biological efficiency ~75% at 50:50 blend (49% on pure hyacinth)",
+   "harvest_rs_per_wet_t": "Bulk harvest payment assumption; craft groups pay ~Rs 7/kg for selected fresh stems",
+   "windage": "Drift ~2-5% of wind speed downwind plus current (debris models, not yet measured on Vembanad)"
+  }
+ }
+}

@@ -40,6 +40,12 @@
         <div><i class="line ferry"></i> Ferry route (approx.)</div>
       </div>
       <div id="windBadge" class="wind-badge">Wind: loading…</div>
+      <div class="sweep" aria-hidden="true"></div>
+      <div id="qrBox" class="qrbox">
+        <button id="qrToggle" class="qr-h" title="Show or hide">📱 Report from your phone <span class="ml">ഫോണിൽ നിന്ന്</span></button>
+        <div class="qr"></div>
+        <div class="qr-url"></div>
+      </div>
     </section>
 
     <aside class="panel">
@@ -91,7 +97,7 @@
           <div class="kpis">
             <div><b id="kPellet">0</b><span>kg pellets</span></div>
             <div><b id="kPaid">₹0</b><span>paid to harvesters</span></div>
-            <div><b id="kValue">₹0</b><span>pellet value</span></div>
+            <div><b id="kMush">0</b><span>kg mushrooms (potential)</span></div>
           </div>
           <div class="row" style="margin-top:10px">
             <button id="briefBtn" class="btn ghost small">📝 Brief for officials</button>
@@ -131,6 +137,7 @@
   <audio id="player" preload="none"></audio>
 
   <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/qrcode/qrcode.js"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

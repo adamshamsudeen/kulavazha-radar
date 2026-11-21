@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Report kulavazha · കുളവാഴ റിപ്പോർട്ട്</title>
+  <meta name="theme-color" content="#0b2b2a" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b2b2a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%2339d98a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2339d98a'/%3E%3C/svg%3E" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { min-height: 100%; }
+    .phone { max-width: 460px; margin: 0 auto; padding: 18px 16px 28px; display: grid; gap: 16px; }
+    .hero { text-align: center; display: grid; gap: 6px; }
+    .hero h1 { font-size: 22px; }
+    .hero .ml { font-size: 18px; color: var(--ink); }
+    .big-mic { width: 168px; height: 168px; justify-self: center; }
+    .big-mic svg { width: 64px; height: 64px; }
+    .status { text-align: center; font-size: 16px; min-height: 48px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
+    .field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+    .field input { background: #0a201f; border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 15px; }
+    .result { display: none; }
+    .result.on { display: grid; }
+    .photo-btn { justify-self: center; }
+    .done-badge { font-size: 42px; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="phone">
+    <div class="hero">
+      <div class="logo" style="justify-self:center" aria-hidden="true"><span></span></div>
+      <h1>Kulavazha Radar</h1>
+      <div class="ml">കുളവാഴ കണ്ടോ? പറയൂ.</div>
+      <div class="muted small">Seen a weed mat? Tap the mic and tell us in Malayalam: where, and how big.</div>
+    </div>
+
+    <label class="field">Your name · പേര്
+      <input id="name" placeholder="e.g. Rajan, ferry crew" autocomplete="name" />
+    </label>
+
+    <button id="mic" class="mic big-mic" aria-label="Tap to speak">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+    </button>
+    <div id="status" class="status">തൊട്ട് സംസാരിക്കൂ · Tap and speak</div>
+
+    <label class="btn ghost photo-btn">📷 Add photo · ഫോട്ടോ <input id="photo" type="file" accept="image/*" capture="environment" hidden /></label>
+    <div id="photoPrev" class="photo-preview" hidden></div>
+
+    <div id="result" class="card result">
+      <div class="done-badge">✅</div>
+      <div id="resText" class="last"></div>
+      <button id="again" class="btn">Report another · വീണ്ടും</button>
+    </div>
+    <p class="muted small" style="text-align:center">Voice understood by Sarvam AI · Your report appears on the control room map instantly</p>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+<script type="module">
+import { PLACES, SIZES, DEMO_REPORTS } from "./data.js";
+const $ = (s) => document.querySelector(s);
+let live = false, photo = null, gps = null, rec = null;
+try { $("#name").value = localStorage.getItem("kr_name") || ""; } catch {}
+$("#name").onchange = () => { try { localStorage.setItem("kr_name", $("#name").value); } catch {} };
+fetch("api/status").then((r) => r.json()).then((j) => (live = !!j.live)).catch(() => {});
+navigator.geolocation?.getCurrentPosition((p) => (gps = [p.coords.latitude, p.coords.longitude]), () => {}, { timeout: 8000 });
+
+$("#photo").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = await createImageBitmap(f);
+  const W = 360, H = Math.round((img.height / img.width) * W);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data; let n = 0;
+  for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2]; if (gg > 55 && gg > r * 1.08 && gg > b * 1.08) n++; }
+  photo = { thumb: c.toDataURL("image/jpeg", 0.7), green: Math.round((n / (W * H)) * 100) };
+  $("#photoPrev").hidden = false;
+  $("#photoPrev").innerHTML = `<img src="${photo.thumb}" alt=""><div>Photo ready · green ≈ ${photo.green}%</div>`;
+};
+
+$("#mic").onclick = async () => {
+  if ($("#mic").classList.contains("busy")) return;
+  if (rec && rec.state === "recording") return rec.stop();
+  if (!live) return send({ demo: DEMO_REPORTS[Math.floor(Math.random() * DEMO_REPORTS.length)] });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+    rec = new MediaRecorder(stream, { mimeType: mime }); const chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop()); $("#mic").classList.remove("rec");
+      const blob = new Blob(chunks, { type: rec.mimeType });
+      if (blob.size < 2000) { $("#status").textContent = "കേട്ടില്ല. വീണ്ടും ശ്രമിക്കൂ."; return; }
+      const b64 = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
+      send({ audio_b64: b64, mime: blob.type });
+    };
+    rec.start(); $("#mic").classList.add("rec");
+    $("#status").textContent = "കേൾക്കുന്നു… തീർന്നാൽ വീണ്ടും തൊടുക";
+    setTimeout(() => rec.state === "recording" && rec.stop(), 25000);
+  } catch { $("#status").textContent = "Microphone blocked. Allow mic access and retry."; }
+};
+
+async function send({ audio_b64, mime, demo }) {
+  $("#mic").classList.add("busy"); $("#status").textContent = "Sarvam AI മനസ്സിലാക്കുന്നു…";
+  try {
+    let r;
+    if (demo) r = { transcript: demo.transcript, translation: demo.translation, extraction: demo.extraction, timings: null };
+    else {
+      const res = await fetch("api/report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_b64, mime }) });
+      r = await res.json(); if (!res.ok) throw new Error(r.error || res.status);
+    }
+    const reporter = $("#name").value.trim() || "Boatman";
+    await fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reporter, transcript: r.transcript, translation: r.translation, extraction: r.extraction, photo: photo?.thumb, green: photo?.green, gps, timings: r.timings, source: demo ? "demo" : "phone" }) });
+    const place = PLACES.find((p) => p.id === r.extraction?.place_id);
+    const size = SIZES[r.extraction?.size] || SIZES.medium;
+    $("#resText").innerHTML = `<div class="ml-text">“${esc(r.transcript)}”</div>
+      ${r.translation ? `<div class="en">${esc(r.translation)}</div>` : ""}
+      <div class="tagrow"><span class="t-tag">📍 ${esc(place ? place.en : "Location from GPS")}</span><span class="t-tag">${size.en}</span>${r.extraction?.blocking ? `<span class="t-tag alert">Boats blocked</span>` : ""}</div>
+      <div class="ml-text" style="font-size:14px">നന്ദി! റിപ്പോർട്ട് രേഖപ്പെടുത്തി. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചു.</div>`;
+    $("#result").classList.add("on"); $("#status").textContent = "";
+    photo = null; $("#photoPrev").hidden = true;
+    speakConfirm();
+  } catch (e) {
+    $("#status").textContent = `Failed: ${e.message}`;
+  } finally { $("#mic").classList.remove("busy"); }
+}
+async function speakConfirm() {
+  const text = "നന്ദി. നിങ്ങളുടെ റിപ്പോർട്ട് രേഖപ്പെടുത്തി. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചിട്ടുണ്ട്.";
+  try {
+    if (!live) throw 0;
+    const r = await fetch("api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, speaker: "kavitha" }) });
+    const j = await r.json(); if (!j.audio_b64) throw 0;
+    new Audio(`data:audio/wav;base64,${j.audio_b64}`).play();
+  } catch { new Audio("audio/confirm.wav").play().catch(() => {}); }
+}
+$("#again").onclick = () => { $("#result").classList.remove("on"); $("#status").textContent = "തൊട്ട് സംസാരിക്കൂ · Tap and speak"; };
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+</script>
+</body>
+</html>

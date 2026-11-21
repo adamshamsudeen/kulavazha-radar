@@ -1,3 +1,4 @@
+[hidden] { display: none !important; }
 :root {
   --bg: #071a1a;
   --panel: #0c2423;
@@ -159,3 +160,18 @@ dialog td:last-child { text-align: right; font-weight: 600; }
 .tab.on { color: var(--ink); border-color: var(--line); background: rgba(255,255,255,.03); }
 .t-tag.weighed { background: rgba(92,200,255,.12); color: var(--blue); border-color: rgba(92,200,255,.4); }
 @media (max-width: 900px) { .top { flex-wrap: wrap; } .top-right { width: 100%; justify-content: space-between; } }
+
+/* Radar sweep over the map */
+.sweep { position: absolute; inset: 0; z-index: 400; pointer-events: none; overflow: hidden; }
+.sweep::before { content: ""; position: absolute; left: 50%; top: 50%; width: 180vmax; height: 180vmax; margin: -90vmax 0 0 -90vmax;
+  background: conic-gradient(from 0deg, rgba(57,217,138,.16), rgba(57,217,138,0) 14%, transparent 100%); animation: sweep 6s linear infinite; mix-blend-mode: screen; }
+/* QR card */
+.qrbox { position: absolute; right: 12px; bottom: 26px; z-index: 600; background: rgba(7,26,26,.92); border: 1px solid var(--green-d); border-radius: 14px; padding: 10px; width: 200px; display: grid; gap: 6px; justify-items: center; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.qr-h { background: none; border: 0; color: var(--ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
+.qr-h .ml { display: block; font-size: 11px; }
+.qr { width: 170px; background: #fff; border-radius: 8px; padding: 4px; }
+.qr svg { display: block; width: 100%; height: auto; }
+.qr-url { font-size: 10px; color: var(--muted); word-break: break-all; text-align: center; }
+.qrbox.min .qr, .qrbox.min .qr-url { display: none; }
+.qrbox.min { width: auto; }
+@media (max-width: 900px) { .qrbox { display: none; } }

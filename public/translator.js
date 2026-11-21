@@ -47,7 +47,7 @@ async function converse({ audio_b64, mime, text, from, to, side }) {
   state.busy = true;
   const t0 = Date.now();
   try {
-    const r = await fetch("api/converse", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_b64, mime, text, from, to }) });
+    const r = await fetch("api/converse", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_b64, mime, text, source: from, target: to }) });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.status);
     const audio = j.audio_b64 ? `data:audio/wav;base64,${j.audio_b64}` : null;

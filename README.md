@@ -1,28 +1,39 @@
 # Kulavazha Radar · കുളവാഴ റഡാർ
 
-Voice-first water hyacinth (kulavazha) reporting for Vembanad Lake, built on **Sarvam AI**.
+Voice-first water hyacinth (kulavazha) radar for Vembanad Lake, built on **Sarvam AI**.
+A data layer for turning a nuisance weed into paid harvest work and MushPellets mushroom substrate.
 
-1. A boatman reports a mat **by voice in Malayalam** → Saaras v4 speech-to-text.
-2. **Sarvam-105B** extracts place, size and whether boats are blocked; **Sarvam-Translate** makes an English copy for officials.
-3. A pin drops on the lake with a **6-hour wind-drift forecast** (Open-Meteo). If it will reach a ferry route, the route turns red and **Bulbul v3** speaks a Malayalam warning; the reporter hears a Malayalam confirmation.
+## What it does
+1. **Report by voice in Malayalam** from any phone (scan the QR on the big screen) → **Saaras v4** speech-to-text.
+2. **Sarvam-105B** extracts place, size and whether boats are blocked, and gives a faithful English line for officials.
+3. A pin drops on the lake with a **6-hour wind-drift forecast** (Open-Meteo). If the mat will reach a ferry route, the route turns red and **Bulbul v3** speaks a Malayalam warning; the reporter hears a Malayalam confirmation.
 4. Each mat becomes a **harvest job**: estimated wet tonnes → substrate pellet kg → ₹ to the harvesting crew, counting toward the 100-tonne MushPellets pilot.
 5. When harvested, a photo of the weighbridge/harvest slip is read by **Sarvam Vision** to log the real weight.
-6. **Brief for officials**: Sarvam-105B writes a daily brief, Sarvam-Translate renders it in Malayalam, Bulbul reads it out.
-7. **Houseboat Translator** (`/translator.html`): guest (English/Hindi/…) ↔ crew (Malayalam) speech translation.
+6. **Brief for officials**: Sarvam-105B writes it, **Sarvam-Translate** renders it in Malayalam, Bulbul reads it out.
+7. **Weed Watch camera**: a CP Plus (or any RTSP) camera frame is grabbed every few seconds; when green mat cover passes a threshold a report is filed automatically.
+8. **Houseboat Translator** (`/translator.html`): guest (English/Hindi/…) ↔ crew (Malayalam) speech translation.
 
-All biomass, pellet and ₹ figures are **estimates**; assumptions live in `public/data.js` (`ASSUMPTIONS`).
+All biomass, pellet and ₹ figures are **estimates**; assumptions are in `public/places.json` (`assumptions`).
+
+## Stack
+- **Backend:** Python 3.10+, FastAPI, httpx (`backend/`). `backend/sarvam.py` wraps every Sarvam API used.
+- **Frontend:** plain HTML/CSS/JS + Leaflet (`public/`), no build step.
+- **Deploy:** Vercel (Python function at `api/index.py`), or run on a laptop.
 
 ## Run locally
 ```bash
-cp .env.example .env   # add SARVAM_API_KEY
-npm start              # http://localhost:3000
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # add SARVAM_API_KEY
+uvicorn backend.app:app --reload --port 3000   # http://localhost:3000  (API docs at /docs)
 ```
-No dependencies. Without a key the app runs in **Demo mode** with canned Malayalam reports (works offline except map tiles).
+Without a key the app runs in **Demo mode** with canned Malayalam reports.
 
-## Deploy (Vercel)
-Import the repo in Vercel (framework: Other), add env var `SARVAM_API_KEY`, deploy. `public/` is served statically; `api/*.js` are serverless functions.
+## Phones on the big screen (laptop demo)
+Expose the laptop with a tunnel, e.g. `cloudflared tunnel --url http://localhost:3000`, put the URL in `.env` as `PUBLIC_URL`, restart. The QR code then points phones at it.
 
-## Bake demo audio (optional, for offline demos)
-```bash
-SARVAM_API_KEY=... npm run bake-audio   # writes Bulbul warnings to public/audio/
-```
+## Camera
+Set `CAM_URL` (e.g. `rtsp://admin:PASS@192.168.1.64:554/cam/realmonitor?channel=1&subtype=1`) and `CAM_PLACE`. Needs `ffmpeg`.
+
+## Offline demo audio
+`python -m tools.bake_audio` writes Bulbul voice files into `public/audio/` so demo mode speaks with real Sarvam voices without network.

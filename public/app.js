@@ -137,13 +137,21 @@ function resetPipeline() { for (const s of ["stt", "llm", "tr", "map", "tts"]) s
 /* ---------------- Reporting ---------------- */
 let pendingPhoto = null;
 
-async function submitReport({ audio, mime, text, demo }) {
+async function submitReport({ audio, mime, text, demo, remote }) {
   const busy = $("#micBtn");
   busy.classList.add("busy");
   resetPipeline();
   try {
-    let transcript, translation, ext, reporter = "Voice report";
-    if (state.mode === "demo" || demo) {
+    let transcript, translation, ext, reporter = "Voice report", gps = null;
+    if (remote) {
+      // Report arrived from a boatman's phone (already processed by Sarvam on that request).
+      step("stt", "done", remote.timings?.stt_ms ? `${remote.timings.stt_ms} ms` : "phone");
+      step("llm", "done", remote.timings?.llm_ms ? `${remote.timings.llm_ms} ms` : "phone");
+      step("tr", remote.translation ? "done" : "skip", remote.translation ? "via 105B" : "");
+      transcript = remote.transcript; translation = remote.translation; ext = remote.extraction || {};
+      reporter = `📱 ${remote.reporter}`; gps = remote.gps;
+      if (remote.photo) pendingPhoto = { thumb: remote.photo, green: remote.green };
+    } else if (state.mode === "demo" || demo) {
       const d = demo || DEMO_REPORTS[state.demoIdx++ % DEMO_REPORTS.length];
       step("stt", "run"); await sleep(audio ? 900 : 350);
       transcript = d.transcript; step("stt", "done", audio ? "demo" : "sample");
@@ -154,7 +162,7 @@ async function submitReport({ audio, mime, text, demo }) {
         const r = await api("api/report", { text: d.transcript });
         ext = r.extraction; step("llm", "done", `${r.timings?.llm_ms ?? "?"} ms`);
         translation = r.translation || ext.translation || d.translation;
-        step("tr", r.translation ? "done" : "skip", r.translation ? `${r.timings?.translate_ms} ms` : "");
+        step("tr", translation ? "done" : "skip", translation ? (r.timings?.translate_ms ? `${r.timings.translate_ms} ms` : "via 105B") : "");
       } else {
         ext = d.extraction; step("llm", "done", "demo");
         step("tr", "run"); await sleep(250);
@@ -170,10 +178,10 @@ async function submitReport({ audio, mime, text, demo }) {
       if (audio) step("stt", "done", `${r.timings?.stt_ms ?? "?"} ms`);
       step("llm", "done", ext.source === "sarvam-105b" ? `${r.timings?.llm_ms} ms` : "fallback");
       translation = r.translation || ext.translation;
-      step("tr", r.translation ? "done" : "skip", r.translation ? `${r.timings?.translate_ms} ms` : "");
+      step("tr", translation ? "done" : "skip", translation ? (r.timings?.translate_ms ? `${r.timings.translate_ms} ms` : "via 105B") : "");
     }
     step("map", "run");
-    const rep = await placeReport({ transcript, translation, ext, reporter });
+    const rep = await placeReport({ transcript, translation, ext, reporter, gps });
     step("map", "done", rep.alert ? "ferry risk" : "");
     renderLast(rep);
     step("tts", "run");
@@ -189,13 +197,15 @@ async function submitReport({ audio, mime, text, demo }) {
   }
 }
 
-async function placeReport({ transcript, translation, ext, reporter }) {
+async function placeReport({ transcript, translation, ext, reporter, gps, fixed }) {
   let place = PLACES.find((p) => p.id === ext.place_id);
   let lat, lng, located = "place";
-  if (place) {
+  if (fixed) {
+    [lat, lng] = fixed;
+  } else if (place) {
     [lat, lng] = move([place.lat, place.lng], Math.random() * 360, 80 + Math.random() * 180);
   } else {
-    const g = await geolocate();
+    const g = (gps && inLake(gps) && gps) || (await geolocate());
     if (g) { [lat, lng] = g; located = "gps"; place = { id: "gps", en: "Reported location (GPS)", ml: "റിപ്പോർട്ട് ചെയ്ത സ്ഥലം" }; }
     else { [lat, lng] = LAKE_CENTER; located = "unknown"; place = { id: "unknown", en: "Location unclear", ml: "കായൽ" }; }
   }
@@ -322,7 +332,7 @@ $("#slipInput").onchange = async (e) => {
   if (kg > 0) {
     r.est = estimate(1); // reshape using real weight
     const A = ASSUMPTIONS, wet_t = kg / 1000;
-    r.est = { area_m2: r.est.area_m2, wet_t: Math.round(wet_t * 10) / 10, dry_kg: Math.round(kg * A.dry_matter_fraction), pellet_kg: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg), harvest_rs: Math.round(wet_t * A.harvest_rs_per_wet_t), pellet_rs: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg * A.pellet_rs_per_kg) };
+    r.est = { area_m2: r.est.area_m2, wet_t: Math.round(wet_t * 10) / 10, dry_kg: Math.round(kg * A.dry_matter_fraction), pellet_kg: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg), harvest_rs: Math.round(wet_t * A.harvest_rs_per_wet_t), pellet_rs: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg * A.pellet_rs_per_kg), mushroom_kg: Math.round(kg * A.dry_matter_fraction * (A.mushroom_kg_per_dry_kg || 0)) };
     r.weighed = true;
   }
   r.status = "harvested"; r.slip = res;
@@ -367,7 +377,7 @@ function renderPilot() {
   $("#barQueued").style.width = Math.min(100 - Math.min(100, (doneT / T) * 100), (qT / T) * 100) + "%";
   $("#kPellet").textContent = sum(done, "pellet_kg").toLocaleString("en-IN");
   $("#kPaid").textContent = "₹" + sum(done, "harvest_rs").toLocaleString("en-IN");
-  $("#kValue").textContent = "₹" + sum(done, "pellet_rs").toLocaleString("en-IN");
+  $("#kMush").textContent = sum(done, "mushroom_kg").toLocaleString("en-IN");
 }
 
 /* ---------------- Voice out ---------------- */
@@ -482,17 +492,20 @@ async function analysePhoto(file) {
 $("#showAssumptions").onclick = (e) => {
   e.preventDefault();
   const A = ASSUMPTIONS;
+  const N = A.notes || {};
+  const row = (label, val, k) => `<tr><td>${label}${N[k] ? `<div class="muted small">${esc(N[k])}</div>` : ""}</td><td>${val}</td></tr>`;
   $("#assumptionsBody").innerHTML = `<table>
-    <tr><td>Fresh biomass of a dense mat</td><td>${A.wet_kg_per_m2} kg/m² (~${A.wet_kg_per_m2 * 10} t/ha)</td></tr>
-    <tr><td>Dry matter</td><td>${A.dry_matter_fraction * 100}%</td></tr>
-    <tr><td>Pellet yield (blended with rubberwood sawdust)</td><td>${A.pellet_kg_per_dry_kg} kg per dry kg</td></tr>
-    <tr><td>Paid to harvesting group</td><td>₹${A.harvest_rs_per_wet_t}/wet t</td></tr>
-    <tr><td>Indicative pellet value</td><td>₹${A.pellet_rs_per_kg}/kg</td></tr>
-    <tr><td>Mat sizes (S / M / L / XL)</td><td>${Object.values(SIZES).map((s) => s.area_m2).join(" / ")} m²</td></tr>
-    <tr><td>Drift speed</td><td>${A.windage * 100}% of wind speed</td></tr>
-    <tr><td>Ferry alert distance</td><td>${A.ferry_alert_m} m</td></tr>
-    <tr><td>Pilot target</td><td>${A.pilot_target_wet_t} t wet weed</td></tr></table>
-    <p class="muted small">Indicative planning figures for the MushPellets pilot, to be calibrated with field weighing during the pilot. <a href="#" onclick="window.kr.reset();return false">Reset demo data</a></p>`;
+    ${row("Fresh biomass of a dense mat", `${A.wet_kg_per_m2} kg/m²`, "wet_kg_per_m2")}
+    ${row("Dry matter", `${Math.round(A.dry_matter_fraction * 100)}%`, "dry_matter_fraction")}
+    ${row("Substrate pellets", `${A.pellet_kg_per_dry_kg} kg per dry kg`, "pellet_kg_per_dry_kg")}
+    ${row("Oyster mushrooms", `${A.mushroom_kg_per_dry_kg} kg per dry kg`, "mushroom_kg_per_dry_kg")}
+    ${row("Paid to harvesting group", `₹${A.harvest_rs_per_wet_t}/wet t`, "harvest_rs_per_wet_t")}
+    ${row("Indicative pellet value", `₹${A.pellet_rs_per_kg}/kg`, "")}
+    ${row("Mat sizes (S / M / L / XL)", `${Object.values(SIZES).map((s) => s.area_m2).join(" / ")} m²`, "")}
+    ${row("Drift speed", `${A.windage * 100}% of wind`, "windage")}
+    ${row("Ferry alert distance", `${A.ferry_alert_m} m`, "")}
+    ${row("Pilot target", `${A.pilot_target_wet_t} t wet (≈5,000 m² of solid mat)`, "")}</table>
+    <p class="muted small">Indicative planning figures for the MushPellets pilot, to be calibrated by field weighing. <a href="#" onclick="window.kr.reset();return false">Reset demo data</a></p>`;
   $("#assumptions").showModal();
 };
 
@@ -511,6 +524,7 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&am
 function time(ts) { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }); }
 let toastT;
 function toast(msg, alert = false) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (alert ? " alert" : ""); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 4500); }
+function inLake([a, o]) { return a > 9.35 && a < 9.8 && o > 76.25 && o < 76.55; }
 function geolocate() {
   return new Promise((res) => {
     if (!navigator.geolocation) return res(null);
@@ -523,9 +537,67 @@ function geolocate() {
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state.reports.map(({ audio, ...r }) => r))); } catch {} }
 function load() { try { state.reports = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { state.reports = []; } }
 
+/* ---------------- Live feed from phones ---------------- */
+let feedSeq = null, feedQueue = [], feedBusy = false;
+async function pollFeed() {
+  try {
+    const j = await (await fetch(`api/feed?since=${feedSeq ?? 0}`)).json();
+    if (feedSeq === null) { feedSeq = j.seq; }            // ignore backlog on first load
+    else { for (const it of j.items) { feedQueue.push(it); feedSeq = Math.max(feedSeq, it.seq); } }
+  } catch {}
+  if (!feedBusy && feedQueue.length) {
+    feedBusy = true;
+    const it = feedQueue.shift();
+    toast(`📱 New report from ${it.reporter}`);
+    await submitReport({ remote: it });
+    feedBusy = false;
+  }
+}
+setInterval(pollFeed, 2000);
+
+/* ---------------- QR: report from your phone ---------------- */
+function drawQR(base) {
+  const url = new URL("report.html", base || location.href).href;
+  const box = $("#qrBox");
+  if (!window.qrcode || !box) return;
+  const q = qrcode(0, "M"); q.addData(url); q.make();
+  box.querySelector(".qr").innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  box.querySelector(".qr-url").textContent = url.replace(/^https?:\/\//, "");
+}
+$("#qrToggle")?.addEventListener("click", () => $("#qrBox").classList.toggle("min"));
+
+/* ---------------- Weed Watch camera ---------------- */
+const CAM = { place: "punnamada", threshold: 35, last: 0, cooldown: 120000, hist: [] };
+async function camLoop() {
+  try {
+    const r = await fetch(`api/cam?t=${Date.now()}`);
+    if (!r.ok) throw new Error(r.status);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    $("#camImg").src = url;
+    const { green } = await analysePhoto(blob);
+    CAM.hist = [...CAM.hist.slice(-19), green];
+    $("#camStat").innerHTML = `Green mat cover <b>${green}%</b> · alert at ${CAM.threshold}% · ${spark(CAM.hist)}`;
+    if (green >= CAM.threshold && Date.now() - CAM.last > CAM.cooldown) {
+      CAM.last = Date.now();
+      const size = green > 70 ? "huge" : green > 50 ? "large" : "medium";
+      const p = PLACES.find((x) => x.id === CAM.place);
+      pendingPhoto = { thumb: await blobToThumb(blob), green };
+      toast(`📹 Weed Watch camera: ${green}% green cover near ${p.en}. Auto-reporting.`, true);
+      await submitReport({ remote: { reporter: "Weed Watch camera", transcript: `ക്യാമറ: ${p.ml} ഭാഗത്ത് ${SIZES[size].ml} കുളവാഴക്കൂട്ടം (${green}% പച്ച)`, translation: `Camera: ${SIZES[size].en.toLowerCase()} hyacinth mat detected near ${p.en} (${green}% green cover).`, extraction: { place_id: p.id, size, blocking: false }, photo: pendingPhoto.thumb, green } });
+    }
+    $("#camCard").hidden = false;
+    setTimeout(camLoop, 3000);
+  } catch { setTimeout(camLoop, 15000); }
+}
+function spark(a) { const bars = "▁▂▃▄▅▆▇█"; return a.map((v) => bars[Math.min(7, Math.floor(v / 12.5))]).join(""); }
+async function blobToThumb(blob) { return (await analysePhoto(blob)).thumb; }
+
 /* ---------------- Boot ---------------- */
 load();
 state.reports.slice().reverse().forEach((r) => drawReport(r));
 refreshFerryColors(); renderJobs(); renderPilot();
 loadWind();
 initMode();
+drawQR();
+fetch("api/status").then((r) => r.json()).then((j) => { if (j.public_url) drawQR(j.public_url.replace(/\/?$/, "/")); if (j.camera) { CAM.place = j.cam_place || CAM.place; camLoop(); } }).catch(() => {});
