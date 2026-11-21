@@ -1,0 +1,16 @@
+{
+  "name": "Kulavazha Radar · കുളവാഴ റിപ്പോർട്ട്",
+  "short_name": "കുളവാഴ",
+  "description": "Report water hyacinth by voice in Malayalam",
+  "start_url": "./report.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#071a1a",
+  "lang": "ml",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

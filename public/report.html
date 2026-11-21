@@ -6,6 +6,10 @@
   <title>കുളവാഴ റിപ്പോർട്ട് · Kulavazha Radar</title>
   <meta name="theme-color" content="#071a1a" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b2b2a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%2339d98a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2339d98a'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="കുളവാഴ" />
   <link rel="stylesheet" href="style.css" />
   <style>
     /* Boat mode: one big action, minimal reading, big targets, works one-handed in sunlight. */
@@ -345,6 +349,7 @@ async function say(text) {
 }
 function stopVoice() { try { voice?.pause(); } catch {} }
 function playConfirm() { stopVoice(); voice = new Audio("audio/confirm.wav"); voice.play().catch(() => {}); }
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>
