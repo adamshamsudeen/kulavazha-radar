@@ -60,7 +60,7 @@
     </div>
 
     <section class="stage">
-      <div class="ask">കുളവാഴ എവിടെ? എത്ര വലുത്?<small>Where is the weed? How big? Say it.</small></div>
+      <div class="ask">കുളവാഴ എവിടെ? എത്ര വലുത്?<small>Where is the weed? How big? Is the way blocked? Say it.</small></div>
       <button id="mic" class="bigmic" aria-label="Tap and speak">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
       </button>
@@ -209,7 +209,7 @@ async function process(audio) {
   } catch {
     // No network: keep the voice note and send it later. The control room processes it then.
     queue({ kind: "audio", audio, gps, photo: photo?.thumb, green: photo?.green, reporter: ls.get("kr_name", "") || "Boatman", ts: Date.now() });
-    finish("⏳", "റിപ്പോർട്ട് സൂക്ഷിച്ചു. നെറ്റ് കിട്ടുമ്പോൾ അയക്കും.", "Saved. Will send when there is network.");
+    finish("📱", "ഫോണിൽ സൂക്ഷിച്ചു. ഇതുവരെ അയച്ചിട്ടില്ല.", "Saved on this phone, not sent yet. It will go by itself when there is network.");
   } finally { $("#mic").classList.remove("busy"); resetHint(); }
 }
 function demoPick() { const d = DEMO_REPORTS[Math.floor(Math.random() * DEMO_REPORTS.length)]; return { transcript: d.transcript, translation: d.translation, extraction: d.extraction, timings: null }; }
@@ -226,10 +226,18 @@ function understood(r, audio) {
   const px = { small: 60, medium: 90, large: 120, huge: 150 }[ex.size] || 90;
   Object.assign($("#cBlob").style, { width: px + "px", height: px + "px" });
   show("#confirm"); buzz([60, 60, 60]);
-  say(`${place ? place.ml + " ഭാഗത്ത്" : ""} ${size.ml} കുളവാഴ. ശരിയാണെങ്കിൽ പച്ച ബട്ടൺ അമർത്തുക.`);
-  // Auto-send after 8 s so a busy boatman doesn't have to look again.
-  let s = 8; const tick = () => { $("#countdown").textContent = `${s} സെക്കൻഡിൽ തനിയെ അയക്കും · auto-send in ${s}s`; if (s-- <= 0) send(); };
-  clearInterval(timer); tick(); timer = setInterval(tick, 1000);
+  clearInterval(timer);
+  // Sure of the place (named it, or chose "report without speaking" at GPS)? Auto-send after 8 s so a
+  // busy boatman needn't look again. Unsure? Never send silently: wait for a tap and ask again.
+  const sure = !!place || (!audio && !!gps);
+  if (sure) {
+    say(`${place ? place.ml + " ഭാഗത്ത്" : ""} ${size.ml} കുളവാഴ. ശരിയാണെങ്കിൽ പച്ച ബട്ടൺ അമർത്തുക.`);
+    let s = 8; const tick = () => { $("#countdown").textContent = `${s} സെക്കൻഡിൽ തനിയെ അയക്കും · auto-send in ${s}s`; if (s-- <= 0) send(); };
+    tick(); timer = setInterval(tick, 1000);
+  } else {
+    say(`സ്ഥലം മനസ്സിലായില്ല. അടുത്തുള്ള ജെട്ടിയുടെയോ സ്ഥലത്തിന്റെയോ പേര് പറഞ്ഞ് വീണ്ടും ശ്രമിക്കൂ.`);
+    $("#countdown").textContent = "സ്ഥലം ഉറപ്പില്ല: ശരിയെങ്കിൽ മാത്രം അയക്കുക · Place unsure: send only if right";
+  }
 }
 $("#yes").onclick = () => send();
 $("#no").onclick = () => { clearInterval(timer); pending = null; show(null); stopVoice(); };
@@ -239,11 +247,12 @@ async function send() {
   if (!pending) return;
   const r = pending; pending = null;
   const item = { kind: "report", reporter: ls.get("kr_name", "") || "Boatman", transcript: r.transcript, translation: r.translation, extraction: r.extraction, photo: photo?.thumb, green: photo?.green, gps, timings: r.timings, source: live ? "phone" : "demo" };
-  const ok = await post(item);
+  const ok = await post(item);  // returns the report number when sent
   if (!ok) queue(item);
   photo = null; $("#photoTool").classList.remove("on"); $("#photoTool").innerHTML = `📷<span>ഫോട്ടോ</span><input id="photo" type="file" accept="image/*" capture="environment" hidden />`; $("#photo").onchange = photoHandler;
-  if (ok) { finish("✅", "നന്ദി! വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചു.", "Thank you. The harvest crew has been told."); playConfirm(); }
-  else finish("⏳", "സൂക്ഷിച്ചു. നെറ്റ് കിട്ടുമ്പോൾ അയക്കും.", "Saved. Will send when there is network.");
+  const ref = typeof ok === "string" ? ` · നമ്പർ ${ok}` : "";
+  if (ok) { finish("✅", `അയച്ചു${ref}`, "Sent. The harvest crew and the ferry office (SWTD) can see it now." + (ref ? ` Report ${ok}.` : "")); playConfirm(); }
+  else finish("📱", "ഫോണിൽ സൂക്ഷിച്ചു. ഇതുവരെ അയച്ചിട്ടില്ല.", "Saved on this phone, not sent yet. It will go by itself when there is network.");
 }
 const photoHandler = $("#photo").onchange;
 
@@ -288,7 +297,9 @@ async function post(item) {
       body = { ...item, kind: "report", audio: undefined, transcript: r.transcript, translation: r.translation, extraction: r.extraction, timings: r.timings, source: "phone-late" };
     }
     const res = await fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    return res.ok;
+    if (!res.ok) return false;
+    const j = await res.json().catch(() => ({}));
+    return j.seq ? "KR-" + String(j.seq).padStart(3, "0") : true;
   } catch { return false; }
 }
 async function flush() {
