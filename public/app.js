@@ -797,3 +797,16 @@ fetch("api/status").then((r) => r.json()).then((j) => { if (j.public_url) drawQR
     fetch("api/cam/status").then((r) => r.json()).then((c) => { CAM.place = c.place || CAM.place; if (c.lat && c.lng) CAM.fixed = [+c.lat, +c.lng]; }).catch(() => {});
     camLoop();
   } }).catch(() => { if (CAM.source === "webcam") camLoop(); });
+
+/* ---------------- Sound gate ---------------- */
+// Browsers only allow audio after a user gesture. Any first click or key unlocks it; the button makes that explicit.
+{
+  const gate = document.getElementById("soundGate");
+  const unlock = () => {
+    try { const C = window.AudioContext || window.webkitAudioContext; if (C) { const c = new C(); c.resume(); const o = c.createOscillator(), g = c.createGain(); g.gain.value = 0; o.connect(g).connect(c.destination); o.start(); o.stop(c.currentTime + 0.05); } } catch {}
+    try { speechSynthesis.speak(new SpeechSynthesisUtterance("")); } catch {}
+    gate?.remove();
+    removeEventListener("pointerdown", unlock, true); removeEventListener("keydown", unlock, true);
+  };
+  addEventListener("pointerdown", unlock, true); addEventListener("keydown", unlock, true);
+}

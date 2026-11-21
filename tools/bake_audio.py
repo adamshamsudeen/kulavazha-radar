@@ -4,6 +4,7 @@
 """
 import asyncio
 import base64
+import sys
 
 from backend import config, sarvam
 
@@ -19,6 +20,12 @@ def warning(place, size, route):
     return f"അറിയിപ്പ്. {place['ml']} ഭാഗത്ത് {s} കുളവാഴക്കൂട്ടം റിപ്പോർട്ട് ചെയ്തു. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചിട്ടുണ്ട്."
 
 
+# Same Malayalam text as DEMO_BRIEF.ml in public/app.js, so the officials' brief can be read aloud offline.
+BRIEF_ML = ("വേമ്പനാട് കുളവാഴ റിപ്പോർട്ട് (ഏകദേശ കണക്കുകൾ). പുന്നമടയിലും മുഹമ്മയിലും കുളവാഴക്കൂട്ടങ്ങൾ റിപ്പോർട്ട് ചെയ്തു. "
+            "മുഹമ്മയിലെ കൂട്ടം ഏകദേശം ഒരു മണിക്കൂറിനുള്ളിൽ മുഹമ്മ–കുമരകം ബോട്ട് പാതയിലെത്താൻ സാധ്യതയുണ്ട്. "
+            "വൈകുന്നേരത്തെ ബോട്ട് സർവീസിന് മുമ്പ് മുഹമ്മയിൽ വിളവെടുപ്പ് സംഘത്തെ വിന്യസിക്കണം.")
+
+
 async def main():
     out = config.PUBLIC / "audio"
     out.mkdir(exist_ok=True)
@@ -27,7 +34,11 @@ async def main():
     for pid, size in DEMO:
         for route in [None, *config.DATA["ferry_routes"]]:
             jobs.append((f"{pid}_{size}_{route['id'] if route else 'none'}", warning(places[pid], size, route), None))
+    jobs.append(("brief", BRIEF_ML, None))
+    only = sys.argv[1:]  # e.g. `python -m tools.bake_audio brief` bakes just that file
     for name, text, speaker in jobs:
+        if only and name not in only:
+            continue
         b64 = await sarvam.text_to_speech(text, speaker=speaker)
         (out / f"{name}.wav").write_bytes(base64.b64decode(b64))
         print("wrote", name)

@@ -6,7 +6,8 @@ from . import config
 from .sarvam import chat
 
 SYSTEM = f"""You read short voice reports from boatmen and fishers on Vembanad Lake, Kerala, about floating
-water hyacinth mats. Words for the weed: കുളവാഴ, പായൽ, കുളവാഴക്കൂട്ടം, kulavazha, payal (never banana or reed).
+water hyacinth mats. Words for the weed (all mean water hyacinth): കുളവാഴ, കുളവാഴക്കൂട്ടം, പോള, പോളപ്പായൽ, കാക്കപ്പോള,
+പായൽ, kulavazha, pola, payal (never banana or reed).
 Reply with ONE JSON object and nothing else. All string values must be in double quotes. Keys:
 "place_id": one id from the list below that best matches the place mentioned, or null
 "place_text": the place as spoken
