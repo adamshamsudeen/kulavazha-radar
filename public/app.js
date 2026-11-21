@@ -1,0 +1,531 @@
+import {
+  LAKE_CENTER, PLACES, FERRY_ROUTES, SIZES, ASSUMPTIONS, estimate,
+  DEMO_REPORTS, DEMO_WIND, warningText,
+} from "./data.js";
+
+const $ = (s) => document.querySelector(s);
+const STORE_KEY = "kr_reports_v1";
+
+const state = {
+  live: false,        // server has a Sarvam key
+  mode: "demo",       // "live" | "demo"
+  wind: null,         // { speed_ms[6], dir_deg[6], source }
+  reports: [],
+  demoIdx: 0,
+};
+
+/* ---------------- Map ---------------- */
+const map = L.map("map", { zoomControl: true, attributionControl: true }).setView(LAKE_CENTER, 12);
+const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, attribution: "Imagery © Esri" });
+const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" });
+satellite.addTo(map);
+L.control.layers({ Satellite: satellite, Map: streets }, {}, { position: "topleft" }).addTo(map);
+
+const ferryLayer = L.layerGroup().addTo(map);
+const matLayer = L.layerGroup().addTo(map);
+const ferryLines = {};
+for (const r of FERRY_ROUTES) {
+  ferryLines[r.id] = L.polyline(r.path, { color: "#5cc8ff", weight: 3, opacity: 0.75 })
+    .bindTooltip(r.en, { className: "ferry-tt", sticky: true })
+    .addTo(ferryLayer);
+}
+map.fitBounds(L.latLngBounds(FERRY_ROUTES.flatMap((r) => r.path)).pad(0.08));
+
+/* ---------------- Geometry ---------------- */
+const R = 6371000;
+function move([lat, lng], bearingDeg, dist) {
+  const b = (bearingDeg * Math.PI) / 180;
+  const dLat = (dist * Math.cos(b)) / R;
+  const dLng = (dist * Math.sin(b)) / (R * Math.cos((lat * Math.PI) / 180));
+  return [lat + (dLat * 180) / Math.PI, lng + (dLng * 180) / Math.PI];
+}
+function toXY([lat, lng], ref) {
+  const x = ((lng - ref[1]) * Math.PI / 180) * R * Math.cos((ref[0] * Math.PI) / 180);
+  const y = ((lat - ref[0]) * Math.PI / 180) * R;
+  return [x, y];
+}
+function distPointSeg(p, a, b) {
+  const [px, py] = toXY(p, a), [bx, by] = toXY(b, a);
+  const t = Math.max(0, Math.min(1, (px * bx + py * by) / (bx * bx + by * by || 1)));
+  return Math.hypot(px - t * bx, py - t * by);
+}
+function distToRoute(p, route) {
+  let d = Infinity;
+  for (let i = 0; i < route.path.length - 1; i++) d = Math.min(d, distPointSeg(p, route.path[i], route.path[i + 1]));
+  return d;
+}
+function bearing(a, b) {
+  const [x, y] = toXY(b, a);
+  return (Math.atan2(x, y) * 180) / Math.PI;
+}
+
+/* ---------------- Wind + drift ---------------- */
+async function loadWind() {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAKE_CENTER[0]}&longitude=${LAKE_CENTER[1]}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&forecast_hours=7&timezone=Asia%2FKolkata`;
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 5000);
+    const j = await (await fetch(url, { signal: ctl.signal })).json();
+    clearTimeout(to);
+    const sp = j.hourly.wind_speed_10m.slice(0, 6), dr = j.hourly.wind_direction_10m.slice(0, 6);
+    if (sp.length < 6) throw new Error("short");
+    state.wind = { speed_ms: sp, dir_deg: dr, source: "Open-Meteo live" };
+  } catch {
+    state.wind = { ...DEMO_WIND, source: "offline sample" };
+  }
+  const s = state.wind.speed_ms[0], d = state.wind.dir_deg[0];
+  $("#windBadge").textContent = `🌬 Wind ${s.toFixed(1)} m/s from ${compass(d)} · ${state.wind.source}`;
+}
+function compass(d) {
+  return ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(((d % 360) / 45)) % 8];
+}
+function driftPath(start) {
+  const pts = [start];
+  let p = start;
+  const w = state.wind || { ...DEMO_WIND };
+  for (let h = 0; h < 6; h++) {
+    const to = (w.dir_deg[h] + 180) % 360;         // wind blows *from* dir
+    const meters = ASSUMPTIONS.windage * w.speed_ms[h] * 3600;
+    p = move(p, to, meters);
+    pts.push(p);
+  }
+  return pts;
+}
+function ferryRisk(path) {
+  let best = null;
+  for (const r of FERRY_ROUTES) {
+    // densify path for a fair check
+    for (let i = 0; i < path.length - 1; i++) {
+      for (let k = 0; k <= 4; k++) {
+        const t = k / 4;
+        const p = [path[i][0] + (path[i + 1][0] - path[i][0]) * t, path[i][1] + (path[i + 1][1] - path[i][1]) * t];
+        const d = distToRoute(p, r);
+        if (d < ASSUMPTIONS.ferry_alert_m && (!best || d < best.d)) best = { route: r, d, hour: i + t };
+      }
+    }
+  }
+  return best;
+}
+
+/* ---------------- Mode ---------------- */
+async function initMode() {
+  try {
+    const j = await (await fetch("api/status")).json();
+    state.live = !!j.live;
+  } catch { state.live = false; }
+  setMode(state.live ? "live" : "demo");
+}
+function setMode(m) {
+  if (m === "live" && !state.live) { toast("Live Sarvam is not configured on the server. Staying in demo mode."); m = "demo"; }
+  state.mode = m;
+  $("#modeLive").classList.toggle("on", m === "live");
+  $("#modeDemo").classList.toggle("on", m === "demo");
+  $("#modeNote").textContent = m === "live" ? "Sarvam AI live" : "Offline demo data";
+}
+$("#modeLive").onclick = () => setMode("live");
+$("#modeDemo").onclick = () => setMode("demo");
+
+/* ---------------- Pipeline UI ---------------- */
+function step(name, status, t) {
+  const li = document.querySelector(`#pipeline li[data-step="${name}"]`);
+  li.className = status || "";
+  li.querySelector(".t")?.remove();
+  if (t) li.insertAdjacentHTML("beforeend", `<span class="t">${t}</span>`);
+}
+function resetPipeline() { for (const s of ["stt", "llm", "tr", "map", "tts"]) step(s, ""); }
+
+/* ---------------- Reporting ---------------- */
+let pendingPhoto = null;
+
+async function submitReport({ audio, mime, text, demo }) {
+  const busy = $("#micBtn");
+  busy.classList.add("busy");
+  resetPipeline();
+  try {
+    let transcript, translation, ext, reporter = "Voice report";
+    if (state.mode === "demo" || demo) {
+      const d = demo || DEMO_REPORTS[state.demoIdx++ % DEMO_REPORTS.length];
+      step("stt", "run"); await sleep(audio ? 900 : 350);
+      transcript = d.transcript; step("stt", "done", audio ? "demo" : "sample");
+      step("llm", "run"); await sleep(600);
+      if (state.mode === "live") {
+        // Sample chip in live mode: run the real LLM + Translate on the sample text.
+        step("tr", "run");
+        const r = await api("api/report", { text: d.transcript });
+        ext = r.extraction; step("llm", "done", `${r.timings?.llm_ms ?? "?"} ms`);
+        translation = r.translation || ext.translation || d.translation;
+        step("tr", r.translation ? "done" : "skip", r.translation ? `${r.timings?.translate_ms} ms` : "");
+      } else {
+        ext = d.extraction; step("llm", "done", "demo");
+        step("tr", "run"); await sleep(250);
+        translation = d.translation; step("tr", "done", "demo");
+      }
+      reporter = d.reporter;
+    } else {
+      step("stt", audio ? "run" : "skip");
+      step("llm", "run"); step("tr", "run");
+      const body = audio ? { audio_b64: await b64(audio), mime } : { text };
+      const r = await api("api/report", body);
+      transcript = r.transcript; ext = r.extraction;
+      if (audio) step("stt", "done", `${r.timings?.stt_ms ?? "?"} ms`);
+      step("llm", "done", ext.source === "sarvam-105b" ? `${r.timings?.llm_ms} ms` : "fallback");
+      translation = r.translation || ext.translation;
+      step("tr", r.translation ? "done" : "skip", r.translation ? `${r.timings?.translate_ms} ms` : "");
+    }
+    step("map", "run");
+    const rep = await placeReport({ transcript, translation, ext, reporter });
+    step("map", "done", rep.alert ? "ferry risk" : "");
+    renderLast(rep);
+    step("tts", "run");
+    const how = await speak(rep);
+    step("tts", how ? "done" : "skip", how || "");
+  } catch (e) {
+    console.error(e);
+    toast(`Report failed: ${e.message}. Switching to demo mode.`, true);
+    setMode("demo");
+    resetPipeline();
+  } finally {
+    busy.classList.remove("busy");
+  }
+}
+
+async function placeReport({ transcript, translation, ext, reporter }) {
+  let place = PLACES.find((p) => p.id === ext.place_id);
+  let lat, lng, located = "place";
+  if (place) {
+    [lat, lng] = move([place.lat, place.lng], Math.random() * 360, 80 + Math.random() * 180);
+  } else {
+    const g = await geolocate();
+    if (g) { [lat, lng] = g; located = "gps"; place = { id: "gps", en: "Reported location (GPS)", ml: "റിപ്പോർട്ട് ചെയ്ത സ്ഥലം" }; }
+    else { [lat, lng] = LAKE_CENTER; located = "unknown"; place = { id: "unknown", en: "Location unclear", ml: "കായൽ" }; }
+  }
+  const size = SIZES[ext.size] ? ext.size : "medium";
+  const area = ext.area_m2 && ext.area_m2 > 0 ? Math.min(ext.area_m2, 40000) : SIZES[size].area_m2;
+  const drift = driftPath([lat, lng]);
+  const risk = ferryRisk(drift);
+  const rep = {
+    id: "r" + Date.now().toString(36),
+    ts: Date.now(), reporter, transcript, translation, place, located,
+    lat, lng, size, blocking: !!ext.blocking, est: estimate(area), drift,
+    alert: risk ? { route: risk.route.id, hour: Math.max(1, Math.round(risk.hour)), d: Math.round(risk.d) } : null,
+    status: "open", photo: pendingPhoto?.thumb || null, green: pendingPhoto?.green ?? null,
+    source: ext.source || "demo",
+  };
+  rep.warning_ml = warningText(place.ml ? place : { ml: "കായൽ" }, size, risk?.route);
+  pendingPhoto = null; $("#photoPreview").hidden = true;
+  state.reports.unshift(rep);
+  save();
+  drawReport(rep, true);
+  renderJobs(); renderPilot();
+  map.flyTo([lat, lng], 13.5, { duration: 1.2 });
+  return rep;
+}
+
+/* ---------------- Drawing ---------------- */
+const drawn = {};
+function drawReport(rep, isNew = false) {
+  drawn[rep.id]?.forEach((l) => matLayer.removeLayer(l));
+  const px = Math.round(18 + Math.sqrt(rep.est.area_m2) * 0.45);
+  const cls = ["mat-icon", isNew ? "new" : "", rep.alert ? "alert" : "", rep.status === "harvested" ? "harvested" : ""].join(" ");
+  const icon = L.divIcon({ className: "", html: `<div class="${cls}" style="width:${px}px;height:${px}px"></div>`, iconSize: [px, px], iconAnchor: [px / 2, px / 2] });
+  const m = L.marker([rep.lat, rep.lng], { icon }).bindPopup(popupHtml(rep), { maxWidth: 280 });
+  const layers = [m];
+  if (rep.status !== "harvested") {
+    const line = L.polyline(rep.drift, { color: "#ffb547", weight: 3, dashArray: "6 6", opacity: 0.95 });
+    const end = rep.drift[rep.drift.length - 1];
+    const ang = bearing(rep.drift[rep.drift.length - 2], end);
+    const head = L.marker(end, { interactive: false, icon: L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9], html: `<svg width="18" height="18" viewBox="0 0 18 18" style="transform:rotate(${ang}deg)"><path d="M9 1 L16 16 L9 12 L2 16 Z" fill="#ffb547"/></svg>` }) });
+    const ghost = L.circleMarker(end, { radius: 5, color: "#ffb547", fillOpacity: 0.2, weight: 1 }).bindTooltip("+6 h", { permanent: false });
+    layers.push(line, head, ghost);
+    if (rep.alert) ferryLines[rep.alert.route]?.setStyle({ color: "#ff6b5b", weight: 5 });
+  }
+  layers.forEach((l) => l.addTo(matLayer));
+  drawn[rep.id] = layers;
+  if (isNew) m.openPopup();
+}
+function refreshFerryColors() {
+  for (const r of FERRY_ROUTES) ferryLines[r.id].setStyle({ color: "#5cc8ff", weight: 3 });
+  for (const rep of state.reports) if (rep.alert && rep.status !== "harvested") ferryLines[rep.alert.route]?.setStyle({ color: "#ff6b5b", weight: 5 });
+}
+function popupHtml(rep) {
+  const route = rep.alert && FERRY_ROUTES.find((r) => r.id === rep.alert.route);
+  return `<b>${esc(rep.place.en)}</b> · ${SIZES[rep.size].en} mat<br>
+  <span class="ml" style="color:#e8f3ef">${esc(rep.transcript)}</span><br>
+  ${rep.translation ? `<i style="color:#8fb3ab">${esc(rep.translation)}</i><br>` : ""}
+  ~${rep.est.wet_t} t wet · ${rep.est.pellet_kg} kg pellets · ₹${rep.est.harvest_rs.toLocaleString("en-IN")} for harvesters <span style="color:#8fb3ab">(est.)</span>
+  ${route ? `<br><b style="color:#ff6b5b">⚠ May reach ${esc(route.en)} in ~${rep.alert.hour} h</b>` : ""}
+  ${rep.photo ? `<img src="${rep.photo}" alt="report photo">${rep.green != null ? `<div style="color:#8fb3ab">Green cover in photo: ${rep.green}%</div>` : ""}` : ""}
+  <div style="margin-top:6px"><button class="btn small" onclick="window.kr.replay('${rep.id}')">🔊 Play warning</button></div>`;
+}
+function renderLast(rep) {
+  const route = rep.alert && FERRY_ROUTES.find((r) => r.id === rep.alert.route);
+  const el = $("#lastReport");
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="ml-text">“${esc(rep.transcript)}”</div>
+    ${rep.translation ? `<div class="en">${esc(rep.translation)}</div>` : ""}
+    <div class="tagrow">
+      <span class="t-tag">📍 ${esc(rep.place.en)}</span>
+      <span class="t-tag">${SIZES[rep.size].en} · ~${rep.est.wet_t} t</span>
+      ${rep.blocking ? `<span class="t-tag alert">Boats blocked</span>` : ""}
+      ${route ? `<span class="t-tag alert">⚠ ${esc(route.en)} in ~${rep.alert.hour} h</span>` : ""}
+    </div>
+    <div class="ml-text" style="font-size:13px;color:#8fb3ab">🔊 ${esc(rep.warning_ml)}</div>`;
+}
+
+/* ---------------- Jobs + pilot ---------------- */
+function renderJobs() {
+  const ul = $("#jobs");
+  if (!state.reports.length) { ul.innerHTML = `<li class="empty">No reports yet. Speak or tap a sample above.</li>`; return; }
+  ul.innerHTML = state.reports.map((r) => {
+    const next = r.status === "open" ? `<button class="btn small" data-act="assign" data-id="${r.id}">Assign crew</button>`
+      : r.status === "assigned" ? `<button class="btn small warn" data-act="slip" data-id="${r.id}">📄 Scan slip</button><button class="btn small ghost" data-act="harvest" data-id="${r.id}">Done</button>` : "";
+    return `<li class="job" data-id="${r.id}">
+      <div class="job-h"><span>${esc(r.place.en)}</span><span class="st ${r.status}">${r.status}</span></div>
+      <div class="job-n"><span><b>${r.weighed ? "" : "~"}${r.est.wet_t} t</b> wet ${r.weighed ? `<span class="t-tag weighed">weighed</span>` : ""}</span><span><b>${r.est.pellet_kg}</b> kg pellets</span><span><b>₹${r.est.harvest_rs.toLocaleString("en-IN")}</b> to crew</span></div>
+      <div class="row"><span class="muted small">${time(r.ts)} · ${esc(r.reporter)}${r.status === "assigned" ? " · Crew: Kainakary Kudumbashree unit" : ""}</span>${next}</div>
+    </li>`;
+  }).join("");
+}
+$("#jobs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]");
+  const li = e.target.closest(".job");
+  if (b) {
+    e.stopPropagation();
+    const r = state.reports.find((x) => x.id === b.dataset.id);
+    if (b.dataset.act === "slip") { slipFor = r; $("#slipInput").click(); return; }
+    r.status = b.dataset.act === "assign" ? "assigned" : "harvested";
+    if (r.status === "harvested") toast(`✅ ${r.est.wet_t} t harvested at ${r.place.en}. ₹${r.est.harvest_rs.toLocaleString("en-IN")} credited to the crew (est.).`);
+    save(); drawReport(r); refreshFerryColors(); renderJobs(); renderPilot();
+  } else if (li) {
+    const r = state.reports.find((x) => x.id === li.dataset.id);
+    map.flyTo([r.lat, r.lng], 14); drawn[r.id]?.[0]?.openPopup();
+  }
+});
+/* ---------------- Harvest slip (Sarvam Vision) ---------------- */
+let slipFor = null;
+$("#slipInput").onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f || !slipFor) return;
+  const r = slipFor; slipFor = null;
+  toast("📄 Sarvam Vision is reading the slip…");
+  let res;
+  try {
+    if (state.mode !== "live") throw new Error("demo");
+    const small = await shrink(f, 1600);
+    const out = await api("api/slip", { image_b64: small.split(",")[1], mime: "image/jpeg" });
+    res = out.result; res.ms = out.ms;
+  } catch (err) {
+    if (state.mode === "live") toast(`Vision failed (${err.message}). Using demo slip values.`, true);
+    res = { wet_weight_kg: Math.round(r.est.wet_t * 1000 * (0.8 + Math.random() * 0.3) / 10) * 10, crew: "Kainakary Kudumbashree unit", date: new Date().toLocaleDateString("en-IN") };
+  }
+  const kg = Number(res.wet_weight_kg);
+  if (kg > 0) {
+    r.est = estimate(1); // reshape using real weight
+    const A = ASSUMPTIONS, wet_t = kg / 1000;
+    r.est = { area_m2: r.est.area_m2, wet_t: Math.round(wet_t * 10) / 10, dry_kg: Math.round(kg * A.dry_matter_fraction), pellet_kg: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg), harvest_rs: Math.round(wet_t * A.harvest_rs_per_wet_t), pellet_rs: Math.round(kg * A.dry_matter_fraction * A.pellet_kg_per_dry_kg * A.pellet_rs_per_kg) };
+    r.weighed = true;
+  }
+  r.status = "harvested"; r.slip = res;
+  toast(`✅ Slip read${res.ms ? ` in ${(res.ms / 1000).toFixed(1)} s` : ""}: ${kg ? kg.toLocaleString("en-IN") + " kg" : "weight not found"}${res.crew ? " · " + res.crew : ""}. ₹${r.est.harvest_rs.toLocaleString("en-IN")} to the crew.`);
+  save(); drawReport(r); refreshFerryColors(); renderJobs(); renderPilot();
+};
+async function shrink(file, max) {
+  const img = await createImageBitmap(file);
+  const k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = img.width * k; c.height = img.height * k;
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+
+/* ---------------- Officials' brief ---------------- */
+const DEMO_BRIEF = {
+  en: "Vembanad hyacinth brief (estimates). Reports today flag mats near Punnamada and Muhamma; the Muhamma mat is forecast to drift onto the Muhamma–Kumarakom ferry route within about an hour. Harvest crews are assigned at Kainakary. The MushPellets pilot has logged roughly 40 of 100 tonnes. Recommended action: deploy the Muhamma crew before the evening ferry runs.",
+  ml: "വേമ്പനാട് കുളവാഴ റിപ്പോർട്ട് (ഏകദേശ കണക്കുകൾ). പുന്നമടയിലും മുഹമ്മയിലും കുളവാഴക്കൂട്ടങ്ങൾ റിപ്പോർട്ട് ചെയ്തു. മുഹമ്മയിലെ കൂട്ടം ഏകദേശം ഒരു മണിക്കൂറിനുള്ളിൽ മുഹമ്മ–കുമരകം ബോട്ട് പാതയിലെത്താൻ സാധ്യതയുണ്ട്. വൈകുന്നേരത്തെ ബോട്ട് സർവീസിന് മുമ്പ് മുഹമ്മയിൽ വിളവെടുപ്പ് സംഘത്തെ വിന്യസിക്കണം.",
+};
+$("#briefBtn").onclick = async () => {
+  const box = $("#brief"); box.hidden = false; box.innerHTML = `<span class="muted">Writing brief…</span>`;
+  let b;
+  try {
+    if (state.mode !== "live") throw new Error("demo");
+    b = await api("api/brief", { reports: state.reports.map((r) => ({ place: r.place.en, size: r.size, wet_t: r.est.wet_t, status: r.status, alert: r.alert && FERRY_ROUTES.find((x) => x.id === r.alert.route)?.en })) });
+  } catch { b = DEMO_BRIEF; }
+  box.innerHTML = `<div class="en" style="color:var(--ink)">${esc(b.en)}</div>${b.ml ? `<div class="ml-text" style="font-size:13px">${esc(b.ml)}</div><div><button class="btn small ghost" id="briefSpeak">🔊 Read in Malayalam</button></div>` : ""}`;
+  $("#briefSpeak")?.addEventListener("click", async () => {
+    try { if (state.mode !== "live") throw 0; const { audio_b64 } = await api("api/tts", { text: b.ml.slice(0, 2400) }); play(`data:audio/wav;base64,${audio_b64}`); }
+    catch { const h = await fetch("audio/brief.wav", { method: "HEAD" }).catch(() => null); if (h?.ok) play("audio/brief.wav"); else toast("Voice needs live mode."); }
+  });
+};
+
+function renderPilot() {
+  const done = state.reports.filter((r) => r.status === "harvested");
+  const queued = state.reports.filter((r) => r.status !== "harvested");
+  const sum = (a, k) => a.reduce((s, r) => s + r.est[k], 0);
+  const doneT = sum(done, "wet_t"), qT = sum(queued, "wet_t"), T = ASSUMPTIONS.pilot_target_wet_t;
+  $("#pilotHarvested").textContent = doneT.toFixed(1).replace(/\.0$/, "");
+  $("#pilotPipeline").textContent = `${qT.toFixed(1).replace(/\.0$/, "")} t reported and waiting`;
+  $("#barDone").style.width = Math.min(100, (doneT / T) * 100) + "%";
+  $("#barQueued").style.width = Math.min(100 - Math.min(100, (doneT / T) * 100), (qT / T) * 100) + "%";
+  $("#kPellet").textContent = sum(done, "pellet_kg").toLocaleString("en-IN");
+  $("#kPaid").textContent = "₹" + sum(done, "harvest_rs").toLocaleString("en-IN");
+  $("#kValue").textContent = "₹" + sum(done, "pellet_rs").toLocaleString("en-IN");
+}
+
+/* ---------------- Voice out ---------------- */
+const CONFIRM_ML = "നന്ദി. നിങ്ങളുടെ റിപ്പോർട്ട് രേഖപ്പെടുത്തി. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചിട്ടുണ്ട്.";
+let confirmAudio = null;
+async function speak(rep, { confirm = true } = {}) {
+  // 1) live Bulbul, 2) pre-baked Bulbul audio for demo reports, 3) browser speech
+  if (state.mode === "live") {
+    try {
+      const t = Date.now();
+      const [c, w] = await Promise.all([
+        confirm ? (confirmAudio ? Promise.resolve({ audio_b64: confirmAudio }) : api("api/tts", { text: CONFIRM_ML, speaker: "kavitha" })) : null,
+        api("api/tts", { text: rep.warning_ml }),
+      ]);
+      const ms = Date.now() - t;
+      if (c) { confirmAudio = c.audio_b64; await playWait(`data:audio/wav;base64,${c.audio_b64}`); }
+      rep.audio = w.audio_b64; await play(`data:audio/wav;base64,${w.audio_b64}`);
+      return `${ms} ms`;
+    } catch (e) { console.warn("TTS failed", e); }
+  }
+  if (confirm) { try { const h = await fetch("audio/confirm.wav", { method: "HEAD" }); if (h.ok) await playWait("audio/confirm.wav"); } catch {} }
+  const baked = `audio/${rep.place.id}_${rep.size}_${rep.alert ? rep.alert.route : "none"}.wav`;
+  try {
+    const h = await fetch(baked, { method: "HEAD" });
+    if (h.ok) { await play(baked); return "Bulbul (cached)"; }
+  } catch {}
+  if ("speechSynthesis" in window) {
+    const u = new SpeechSynthesisUtterance(rep.warning_ml); u.lang = "ml-IN";
+    speechSynthesis.speak(u); return "browser voice";
+  }
+  return null;
+}
+function playWait(src) {
+  return new Promise((res) => { const a = new Audio(src); a.onended = res; a.onerror = res; a.play().catch(res); });
+}
+function play(src) {
+  const a = $("#player"); a.src = src;
+  return a.play().catch(() => toast("Tap ▶ Play warning on the pin to hear it (browser blocked autoplay)."));
+}
+window.kr = {
+  replay: async (id) => { const r = state.reports.find((x) => x.id === id); if (r.audio) play(`data:audio/wav;base64,${r.audio}`); else speak(r, { confirm: false }); },
+  reset: () => { state.reports = []; save(); location.reload(); },
+};
+
+/* ---------------- Mic ---------------- */
+let rec = null, chunks = [], recTimer = null;
+$("#micBtn").onclick = async () => {
+  if ($("#micBtn").classList.contains("busy")) return;
+  if (rec && rec.state === "recording") { rec.stop(); return; }
+  if (state.mode === "demo" && !navigator.mediaDevices) { submitReport({}); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunks = [];
+    rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      clearTimeout(recTimer);
+      $("#micBtn").classList.remove("rec");
+      $("#micLabel").innerHTML = `Tap to speak in Malayalam<br><span class="ml">മലയാളത്തിൽ പറയൂ</span>`;
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      if (blob.size < 2000) { toast("Didn't catch that. Tap, speak, then tap again."); return; }
+      submitReport({ audio: blob, mime: blob.type });
+    };
+    rec.start();
+    $("#micBtn").classList.add("rec");
+    $("#micLabel").innerHTML = `Listening… tap again to send<br><span class="ml">കേൾക്കുന്നു…</span>`;
+    recTimer = setTimeout(() => rec.state === "recording" && rec.stop(), 25000);
+  } catch (e) {
+    toast("Microphone not available. Use a sample or type the report.");
+  }
+};
+
+/* ---------------- Type + samples + photo ---------------- */
+$("#typeToggle").onclick = () => { $("#typeForm").hidden = !$("#typeForm").hidden; if (!$("#typeForm").hidden) $("#typeInput").focus(); };
+$("#typeForm").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("#typeInput").value.trim(); if (!text) return;
+  $("#typeInput").value = "";
+  if (state.mode === "demo") {
+    const hit = DEMO_REPORTS.find((d) => d.extraction.place_id === guessPlace(text));
+    submitReport({ demo: { reporter: "Typed report", transcript: text, translation: null, extraction: { place_id: guessPlace(text), size: guessSize(text), blocking: false } } });
+  } else submitReport({ text });
+};
+function guessPlace(t) { const s = t.toLowerCase(); return PLACES.find((p) => p.aliases.some((a) => s.includes(a.toLowerCase())))?.id || null; }
+function guessSize(t) { return /വളരെ വലിയ|huge/i.test(t) ? "huge" : /വലിയ|large|big/i.test(t) ? "large" : /ചെറിയ|small/i.test(t) ? "small" : "medium"; }
+
+$("#sampleChips").innerHTML = DEMO_REPORTS.map((d, i) => `<button class="chip" data-i="${i}">${esc(PLACES.find((p) => p.id === d.extraction.place_id).en.split(" (")[0])}</button>`).join("");
+$("#sampleChips").onclick = (e) => { const b = e.target.closest(".chip"); if (b) submitReport({ demo: DEMO_REPORTS[+b.dataset.i] }); };
+
+$("#photoInput").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const { thumb, green } = await analysePhoto(f);
+  pendingPhoto = { thumb, green };
+  const pv = $("#photoPreview"); pv.hidden = false;
+  pv.innerHTML = `<img src="${thumb}" alt=""><div>Photo attached. Green cover ≈ <b>${green}%</b><br>Now speak the report.</div>`;
+  e.target.value = "";
+};
+async function analysePhoto(file) {
+  const img = await createImageBitmap(file);
+  const W = 360, H = Math.round((img.height / img.width) * W);
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data;
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2]; if (gg > 55 && gg > r * 1.08 && gg > b * 1.08) n++; }
+  return { thumb: c.toDataURL("image/jpeg", 0.7), green: Math.round((n / (W * H)) * 100) };
+}
+
+/* ---------------- Assumptions dialog ---------------- */
+$("#showAssumptions").onclick = (e) => {
+  e.preventDefault();
+  const A = ASSUMPTIONS;
+  $("#assumptionsBody").innerHTML = `<table>
+    <tr><td>Fresh biomass of a dense mat</td><td>${A.wet_kg_per_m2} kg/m² (~${A.wet_kg_per_m2 * 10} t/ha)</td></tr>
+    <tr><td>Dry matter</td><td>${A.dry_matter_fraction * 100}%</td></tr>
+    <tr><td>Pellet yield (blended with rubberwood sawdust)</td><td>${A.pellet_kg_per_dry_kg} kg per dry kg</td></tr>
+    <tr><td>Paid to harvesting group</td><td>₹${A.harvest_rs_per_wet_t}/wet t</td></tr>
+    <tr><td>Indicative pellet value</td><td>₹${A.pellet_rs_per_kg}/kg</td></tr>
+    <tr><td>Mat sizes (S / M / L / XL)</td><td>${Object.values(SIZES).map((s) => s.area_m2).join(" / ")} m²</td></tr>
+    <tr><td>Drift speed</td><td>${A.windage * 100}% of wind speed</td></tr>
+    <tr><td>Ferry alert distance</td><td>${A.ferry_alert_m} m</td></tr>
+    <tr><td>Pilot target</td><td>${A.pilot_target_wet_t} t wet weed</td></tr></table>
+    <p class="muted small">Indicative planning figures for the MushPellets pilot, to be calibrated with field weighing during the pilot. <a href="#" onclick="window.kr.reset();return false">Reset demo data</a></p>`;
+  $("#assumptions").showModal();
+};
+
+/* ---------------- Helpers ---------------- */
+async function api(url, body) {
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 30000);
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctl.signal });
+  clearTimeout(to);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+function b64(blob) { return new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result.split(",")[1]); fr.readAsDataURL(blob); }); }
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function time(ts) { return new Date(ts).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }); }
+let toastT;
+function toast(msg, alert = false) { const t = $("#toast"); t.textContent = msg; t.className = "toast" + (alert ? " alert" : ""); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 4500); }
+function geolocate() {
+  return new Promise((res) => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition((p) => {
+      const { latitude: a, longitude: o } = p.coords;
+      res(a > 9.35 && a < 9.8 && o > 76.25 && o < 76.55 ? [a, o] : null);
+    }, () => res(null), { timeout: 4000 });
+  });
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state.reports.map(({ audio, ...r }) => r))); } catch {} }
+function load() { try { state.reports = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { state.reports = []; } }
+
+/* ---------------- Boot ---------------- */
+load();
+state.reports.slice().reverse().forEach((r) => drawReport(r));
+refreshFerryColors(); renderJobs(); renderPilot();
+loadWind();
+initMode();

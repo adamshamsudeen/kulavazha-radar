@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Kulavazha Radar · കുളവാഴ റഡാർ</title>
+  <meta name="description" content="Voice-first water hyacinth reporting, drift forecast and harvest jobs for Vembanad Lake, powered by Sarvam AI." />
+  <meta name="theme-color" content="#0b2b2a" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b2b2a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%2339d98a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2339d98a'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><span></span></div>
+      <div>
+        <h1>Kulavazha Radar <span class="ml">കുളവാഴ റഡാർ</span></h1>
+        <p class="tag">Boatmen report weed by voice. Ferries get warned. Every mat becomes paid harvest work.</p>
+      </div>
+    </div>
+    <div class="top-right">
+      <nav class="tabs"><a class="tab on" href="./">Radar</a><a class="tab" href="translator.html">Houseboat Translator</a></nav>
+      <div class="mode" role="group" aria-label="Mode">
+        <button id="modeLive" class="seg">Live</button>
+        <button id="modeDemo" class="seg">Demo</button>
+      </div>
+      <span id="modeNote" class="pill"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="mapwrap">
+      <div id="map"></div>
+      <div class="legend">
+        <div><i class="dot mat"></i> Reported mat</div>
+        <div><i class="line drift"></i> 6-hour drift forecast</div>
+        <div><i class="line ferry"></i> Ferry route (approx.)</div>
+      </div>
+      <div id="windBadge" class="wind-badge">Wind: loading…</div>
+    </section>
+
+    <aside class="panel">
+      <!-- 1. REPORT -->
+      <div class="card">
+        <div class="card-h"><span class="num">1</span> Report a mat <span class="ml">കുളവാഴ റിപ്പോർട്ട് ചെയ്യുക</span></div>
+        <div class="report">
+          <button id="micBtn" class="mic" aria-label="Hold to speak in Malayalam">
+            <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+          </button>
+          <div class="report-side">
+            <div id="micLabel" class="mic-label">Tap to speak in Malayalam<br><span class="ml">മലയാളത്തിൽ പറയൂ</span></div>
+            <div class="row">
+              <label class="btn ghost small" title="Attach a photo (phone camera or Meta glasses)">
+                📷 Photo <input id="photoInput" type="file" accept="image/*" capture="environment" hidden />
+              </label>
+              <button id="typeToggle" class="btn ghost small">⌨ Type</button>
+            </div>
+          </div>
+        </div>
+        <form id="typeForm" class="typeform" hidden>
+          <input id="typeInput" placeholder="ഉദാ: കൈനകരി ജെട്ടിക്ക് അടുത്ത് വലിയ കുളവാഴ" />
+          <button class="btn">Send</button>
+        </form>
+        <div id="photoPreview" class="photo-preview" hidden></div>
+        <div class="samples">
+          <span class="muted">Try a sample report:</span>
+          <div id="sampleChips" class="chips"></div>
+        </div>
+        <ol id="pipeline" class="pipeline">
+          <li data-step="stt"><b>Saaras v4</b> speech → Malayalam text</li>
+          <li data-step="llm"><b>Sarvam-105B</b> finds place + size</li>
+          <li data-step="tr"><b>Sarvam-Translate</b> English copy for officials</li>
+          <li data-step="map"><b>Map</b> pin + 6 h wind drift</li>
+          <li data-step="tts"><b>Bulbul v3</b> voice reply + ferry warning</li>
+        </ol>
+        <div id="lastReport" class="last" hidden></div>
+      </div>
+
+      <!-- 2. PILOT -->
+      <div class="card">
+        <div class="card-h"><span class="num">2</span> MushPellets pilot <span class="ml">വിളവെടുപ്പ്</span></div>
+        <div class="pilot">
+          <div class="pilot-top">
+            <div><span id="pilotHarvested" class="big">0</span><span class="unit"> / 100 t wet weed harvested</span></div>
+            <div class="muted small" id="pilotPipeline">0 t reported and waiting</div>
+          </div>
+          <div class="bar"><div id="barDone" class="bar-done"></div><div id="barQueued" class="bar-queued"></div></div>
+          <div class="kpis">
+            <div><b id="kPellet">0</b><span>kg pellets</span></div>
+            <div><b id="kPaid">₹0</b><span>paid to harvesters</span></div>
+            <div><b id="kValue">₹0</b><span>pellet value</span></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button id="briefBtn" class="btn ghost small">📝 Brief for officials</button>
+            <span class="muted small">Sarvam-105B + Translate</span>
+          </div>
+          <div id="brief" class="last" hidden></div>
+          <p class="est">Figures marked “est.” are estimates; “weighed” comes from a slip read by Sarvam Vision. <a href="#" id="showAssumptions">See assumptions</a></p>
+        </div>
+      </div>
+
+      <!-- 3. JOBS -->
+      <div class="card">
+        <div class="card-h"><span class="num">3</span> Harvest jobs <span class="ml">ജോലികൾ</span></div>
+        <ul id="jobs" class="jobs"><li class="empty">No reports yet. Speak or tap a sample above.</li></ul>
+      </div>
+
+      <div class="card cam" id="camCard" hidden>
+        <div class="card-h"><span class="num">⦿</span> Weed Watch camera</div>
+        <img id="camImg" alt="Camera frame" />
+        <div class="row"><span id="camStat" class="muted small">Waiting for frame…</span></div>
+      </div>
+
+      <footer class="foot">
+        Built for HackaThoni 2026, Alappuzha · Speech, language and voice by <b>Sarvam AI</b> · Wind by Open-Meteo · Map © OpenStreetMap, Esri
+      </footer>
+    </aside>
+  </main>
+
+  <dialog id="assumptions">
+    <h3>Estimate assumptions</h3>
+    <div id="assumptionsBody"></div>
+    <form method="dialog"><button class="btn">Close</button></form>
+  </dialog>
+
+  <input id="slipInput" type="file" accept="image/*" capture="environment" hidden />
+  <div id="toast" class="toast" hidden></div>
+  <audio id="player" preload="none"></audio>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

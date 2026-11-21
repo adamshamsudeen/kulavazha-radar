@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Houseboat Translator · Kulavazha Radar</title>
+  <meta name="theme-color" content="#0b2b2a" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b2b2a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%2339d98a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2339d98a'/%3E%3C/svg%3E" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .tr-wrap { max-width: 860px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+    .convo { min-height: 46vh; max-height: 58vh; overflow-y: auto; display: grid; gap: 10px; align-content: start; padding: 4px; }
+    .bubble { max-width: 78%; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); display: grid; gap: 4px; }
+    .bubble.guest { justify-self: start; border-bottom-left-radius: 4px; }
+    .bubble.crew { justify-self: end; border-bottom-right-radius: 4px; background: #11352f; }
+    .bubble .who { font-size: 11px; color: var(--muted); }
+    .bubble .src { font-size: 13px; color: var(--muted); }
+    .bubble .dst { font-size: 17px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
+    .bubble .meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+    .bubble button { background: none; border: 0; color: var(--green); cursor: pointer; font: inherit; font-size: 12px; padding: 0; }
+    .pads { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .pad { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; justify-items: center; gap: 8px; text-align: center; }
+    .pad select { background: #0a201f; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 13px; }
+    .pad .mic { width: 84px; height: 84px; }
+    .pad.crew .mic { background: radial-gradient(circle at 30% 30%, #7fd3ff, #1f7fb0); }
+    .hint { font-size: 12px; color: var(--muted); text-align: center; }
+    .samples2 { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    @media (max-width: 600px) { .pads { gap: 8px; } .pad { padding: 10px; } .bubble { max-width: 90%; } }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><span></span></div>
+      <div>
+        <h1>Houseboat Translator <span class="ml">ഹൗസ്ബോട്ട് പരിഭാഷകൻ</span></h1>
+        <p class="tag">Guests and crew talk in their own language. Speech, translation and voice by Sarvam AI.</p>
+      </div>
+    </div>
+    <div class="top-right">
+      <nav class="tabs"><a class="tab" href="./">Radar</a><a class="tab on" href="translator.html">Houseboat Translator</a></nav>
+      <div class="mode" role="group" aria-label="Mode">
+        <button id="modeLive" class="seg">Live</button>
+        <button id="modeDemo" class="seg">Demo</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="tr-wrap">
+    <div id="convo" class="convo">
+      <div class="hint">Tap a mic, speak, tap again. The other side hears it in their language.</div>
+    </div>
+    <div class="pads">
+      <div class="pad guest">
+        <div><b>Guest</b></div>
+        <select id="guestLang" aria-label="Guest language">
+          <option value="en-IN">English</option>
+          <option value="hi-IN">हिन्दी Hindi</option>
+          <option value="ta-IN">தமிழ் Tamil</option>
+          <option value="kn-IN">ಕನ್ನಡ Kannada</option>
+          <option value="te-IN">తెలుగు Telugu</option>
+          <option value="bn-IN">বাংলা Bengali</option>
+          <option value="mr-IN">मराठी Marathi</option>
+          <option value="gu-IN">ગુજરાતી Gujarati</option>
+        </select>
+        <button class="mic" id="micGuest" aria-label="Guest speaks"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
+        <span class="small muted" id="lblGuest">Tap to speak</span>
+      </div>
+      <div class="pad crew">
+        <div><b>Crew</b> <span class="ml">ജീവനക്കാർ</span></div>
+        <select disabled><option>മലയാളം Malayalam</option></select>
+        <button class="mic" id="micCrew" aria-label="Crew speaks"><svg viewBox="0 0 24 24" width="34" height="34"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
+        <span class="small muted ml" id="lblCrew">സംസാരിക്കാൻ തൊടുക</span>
+      </div>
+    </div>
+    <div class="samples2" id="samples"></div>
+    <p class="hint">Saaras v4 hears it · Sarvam-Translate translates it · Bulbul v3 speaks it</p>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="translator.js"></script>
+</body>
+</html>

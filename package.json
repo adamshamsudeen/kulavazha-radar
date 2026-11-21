@@ -1,0 +1,12 @@
+{
+  "name": "kulavazha-radar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice-first water hyacinth (kulavazha) reporting, drift forecasting and harvest jobs for Vembanad Lake. Built on Sarvam AI.",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "bake-audio": "node tools/bake-audio.js"
+  }
+}
