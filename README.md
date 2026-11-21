@@ -3,6 +3,13 @@
 Voice-first water hyacinth (kulavazha) radar for Vembanad Lake, built on **Sarvam AI**.
 A data layer for turning a nuisance weed into paid harvest work and MushPellets mushroom substrate.
 
+**Live demo**
+- Render: https://kulavazha-radar.onrender.com (free tier, so the first visit can take about a minute to wake)
+- Laptop tunnel during HackaThoni 2026: https://par-millennium-also-missions.trycloudflare.com (temporary)
+- Phone reporting page: add `/report.html`. Houseboat Translator: add `/translator.html`.
+
+Quick start: `pip install -r requirements.txt`, then put `SARVAM_API_KEY` in `.env` and run `uvicorn backend.app:app --port 3000`.
+
 ## What it does
 1. **Report by voice in Malayalam** from any phone (scan the QR on the big screen) → **Saaras v4** speech-to-text.
 2. **Sarvam-105B** extracts place, size and whether boats are blocked, and gives a faithful English line for officials.
@@ -18,7 +25,7 @@ All biomass, pellet and ₹ figures are **estimates**; assumptions are in `publi
 ## Stack
 - **Backend:** Python 3.10+, FastAPI, httpx (`backend/`). `backend/sarvam.py` wraps every Sarvam API used.
 - **Frontend:** plain HTML/CSS/JS + Leaflet (`public/`), no build step.
-- **Deploy:** Vercel (Python function at `api/index.py`), or run on a laptop.
+- **Deploy:** Render (`render.yaml`), Vercel (`api/index.py`), or a laptop plus a cloudflared tunnel.
 
 ## Run locally
 ```bash
