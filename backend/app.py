@@ -18,11 +18,11 @@ from .extract import extract_report
 
 app = FastAPI(title="Kulavazha Radar", description="Voice-first water hyacinth radar for Vembanad Lake, on Sarvam AI")
 
-# Simple guard for a public demo URL: caps Sarvam-spending calls per IP and in total.
+# Simple guard for a public demo URL: caps Sarvam-spending calls (and feed posts) per IP and in total.
 import collections
 from fastapi import Request
 
-PAID = {"/api/report", "/api/tts", "/api/translate", "/api/slip", "/api/brief", "/api/converse"}
+PAID = {"/api/report", "/api/tts", "/api/translate", "/api/slip", "/api/brief", "/api/converse", "/api/feed"}
 PER_IP_PER_MIN = int(__import__("os").environ.get("RATE_PER_MIN", "20"))
 TOTAL_PER_HOUR = int(__import__("os").environ.get("RATE_TOTAL_PER_HOUR", "600"))
 _hits: dict = collections.defaultdict(collections.deque)
