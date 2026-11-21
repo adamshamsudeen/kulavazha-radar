@@ -8,6 +8,30 @@ A data layer for turning a nuisance weed into paid harvest work and MushPellets 
 - Laptop tunnel during HackaThoni 2026: https://par-millennium-also-missions.trycloudflare.com (temporary)
 - Phone reporting page: add `/report.html`. Houseboat Translator: add `/translator.html`.
 
+**Why:** on 3 Sep 2026 the Muhamma–Kumarakom ferry was stranded mid-lake for hours after kulavazha jammed its propeller (Onmanorama reported it happens almost daily). Nobody tracks where the mats are or where they will drift, and the people who see them first, boatmen and fishers, speak Malayalam, not English forms.
+
+**Tracks:** Beyond English (Sarvam) · Alappuzha Challenge · Beyond the Screen
+
+## How Sarvam is used
+Five Sarvam models in one loop. Malayalam in, Malayalam out; English only where officials need it.
+
+| Model | What it does here | Code |
+|---|---|---|
+| **Saaras v4** (`saaras:v4`) | Malayalam / Manglish voice report → text; also the guest side of the Houseboat Translator | `sarvam.speech_to_text` → `/api/report`, `/api/converse` |
+| **Sarvam-105B** (`sarvam-105b`) | Pulls place, mat size and "boats blocked" out of free speech as JSON, plus an English line; writes the officials' brief | `backend/extract.py`, `/api/brief` |
+| **Sarvam-Translate** (`sarvam-translate:v1`) | Brief → Malayalam; guest ↔ crew translation; fallback English line | `sarvam.translate` → `/api/brief`, `/api/converse`, `/api/translate` |
+| **Bulbul v3** (`bulbul:v3`) | Malayalam thank-you to the reporter, ferry warnings, brief read aloud | `sarvam.text_to_speech` → `/api/tts` |
+| **Sarvam Vision** | Reads a handwritten weighbridge / harvest slip into crew, date and kg | `sarvam.vision_extract` → `/api/slip` |
+
+All calls live in `backend/sarvam.py`.
+
+## Beyond the screen
+- **Voice first:** the phone page is one big talk button; no typing, no English.
+- **Hands-free:** Space toggles the mic, so a foot pedal, an EMG "clench" switch or any keyboard can be the talk button while hands stay on the oar or the net.
+- **Camera that reports by itself:** a houseboat CCTV (CP Plus / RTSP) files a report when green mat cover stays above a threshold (30% by default, set with `?thr=`).
+- **Spoken replies:** reporters and ferry crews hear Malayalam back from Bulbul, not a notification.
+- **Saved when offline:** reports made with no signal are kept on the phone and sent when it reconnects.
+
 Quick start: `pip install -r requirements.txt`, then put `SARVAM_API_KEY` in `.env` and run `uvicorn backend.app:app --port 3000`.
 
 ## About kulavazha (water hyacinth)
