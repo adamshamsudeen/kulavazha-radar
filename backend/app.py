@@ -18,6 +18,33 @@ from .extract import extract_report
 
 app = FastAPI(title="Kulavazha Radar", description="Voice-first water hyacinth radar for Vembanad Lake, on Sarvam AI")
 
+# Simple guard for a public demo URL: caps Sarvam-spending calls per IP and in total.
+import collections
+from fastapi import Request
+
+PAID = {"/api/report", "/api/tts", "/api/translate", "/api/slip", "/api/brief", "/api/converse"}
+PER_IP_PER_MIN = int(__import__("os").environ.get("RATE_PER_MIN", "20"))
+TOTAL_PER_HOUR = int(__import__("os").environ.get("RATE_TOTAL_PER_HOUR", "600"))
+_hits: dict = collections.defaultdict(collections.deque)
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if request.method == "POST" and request.url.path in PAID:
+        now = time.time()
+        ip = (request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for", "").split(",")[0]
+              or (request.client.host if request.client else "?"))
+        q, allq = _hits[ip], _hits["*"]
+        while q and now - q[0] > 60:
+            q.popleft()
+        while allq and now - allq[0] > 3600:
+            allq.popleft()
+        if len(q) >= PER_IP_PER_MIN or len(allq) >= TOTAL_PER_HOUR:
+            return JSONResponse({"error": "Rate limit reached for this demo. Try again in a minute."}, status_code=429)
+        q.append(now)
+        allq.append(now)
+    return await call_next(request)
+
 
 def err(e: Exception, status: int = 502) -> JSONResponse:
     return JSONResponse({"error": str(e)[:400]}, status_code=status)
