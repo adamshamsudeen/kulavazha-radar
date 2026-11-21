@@ -142,14 +142,14 @@ async function submitReport({ audio, mime, text, demo, remote }) {
   busy.classList.add("busy");
   resetPipeline();
   try {
-    let transcript, translation, ext, reporter = "Voice report", gps = null;
+    let transcript, translation, ext, reporter = "Voice report", gps = null, fixed = null;
     if (remote) {
       // Report arrived from a boatman's phone (already processed by Sarvam on that request).
       step("stt", "done", remote.timings?.stt_ms ? `${remote.timings.stt_ms} ms` : "phone");
       step("llm", "done", remote.timings?.llm_ms ? `${remote.timings.llm_ms} ms` : "phone");
       step("tr", remote.translation ? "done" : "skip", remote.translation ? "via 105B" : "");
       transcript = remote.transcript; translation = remote.translation; ext = remote.extraction || {};
-      reporter = `📱 ${remote.reporter}`; gps = remote.gps;
+      reporter = remote.source === "camera" ? `📹 ${remote.reporter}` : `📱 ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
       if (remote.photo) pendingPhoto = { thumb: remote.photo, green: remote.green };
     } else if (state.mode === "demo" || demo) {
       const d = demo || DEMO_REPORTS[state.demoIdx++ % DEMO_REPORTS.length];
@@ -181,7 +181,7 @@ async function submitReport({ audio, mime, text, demo, remote }) {
       step("tr", translation ? "done" : "skip", translation ? (r.timings?.translate_ms ? `${r.timings.translate_ms} ms` : "via 105B") : "");
     }
     step("map", "run");
-    const rep = await placeReport({ transcript, translation, ext, reporter, gps });
+    const rep = await placeReport({ transcript, translation, ext, reporter, gps, fixed });
     step("map", "done", rep.alert ? "ferry risk" : "");
     renderLast(rep);
     step("tts", "run");
@@ -539,16 +539,17 @@ function load() { try { state.reports = JSON.parse(localStorage.getItem(STORE_KE
 
 /* ---------------- Live feed from phones ---------------- */
 let feedSeq = null, feedQueue = [], feedBusy = false;
+const ownFeedSeqs = new Set();
 async function pollFeed() {
   try {
     const j = await (await fetch(`api/feed?since=${feedSeq ?? 0}`)).json();
     if (feedSeq === null) { feedSeq = j.seq; }            // ignore backlog on first load
-    else { for (const it of j.items) { feedQueue.push(it); feedSeq = Math.max(feedSeq, it.seq); } }
+    else { for (const it of j.items) { if (!ownFeedSeqs.has(it.seq)) feedQueue.push(it); feedSeq = Math.max(feedSeq, it.seq); } }
   } catch {}
   if (!feedBusy && feedQueue.length) {
     feedBusy = true;
     const it = feedQueue.shift();
-    toast(`📱 New report from ${it.reporter}`);
+    toast(it.source === "camera" ? `📹 ${it.reporter} auto-report` : `📱 New report from ${it.reporter}`);
     await submitReport({ remote: it });
     feedBusy = false;
   }
@@ -566,32 +567,224 @@ function drawQR(base) {
 }
 $("#qrToggle")?.addEventListener("click", () => $("#qrBox").classList.toggle("min"));
 
-/* ---------------- Weed Watch camera ---------------- */
-const CAM = { place: "punnamada", threshold: 35, last: 0, cooldown: 120000, hist: [] };
-async function camLoop() {
-  try {
-    const r = await fetch(`api/cam?t=${Date.now()}`);
-    if (!r.ok) throw new Error(r.status);
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    $("#camImg").src = url;
-    const { green } = await analysePhoto(blob);
-    CAM.hist = [...CAM.hist.slice(-19), green];
-    $("#camStat").innerHTML = `Green mat cover <b>${green}%</b> · alert at ${CAM.threshold}% · ${spark(CAM.hist)}`;
-    if (green >= CAM.threshold && Date.now() - CAM.last > CAM.cooldown) {
-      CAM.last = Date.now();
-      const size = green > 70 ? "huge" : green > 50 ? "large" : "medium";
-      const p = PLACES.find((x) => x.id === CAM.place);
-      pendingPhoto = { thumb: await blobToThumb(blob), green };
-      toast(`📹 Weed Watch camera: ${green}% green cover near ${p.en}. Auto-reporting.`, true);
-      await submitReport({ remote: { reporter: "Weed Watch camera", transcript: `ക്യാമറ: ${p.ml} ഭാഗത്ത് ${SIZES[size].ml} കുളവാഴക്കൂട്ടം (${green}% പച്ച)`, translation: `Camera: ${SIZES[size].en.toLowerCase()} hyacinth mat detected near ${p.en} (${green}% green cover).`, extraction: { place_id: p.id, size, blocking: false }, photo: pendingPhoto.thumb, green } });
-    }
-    $("#camCard").hidden = false;
-    setTimeout(camLoop, 3000);
-  } catch { setTimeout(camLoop, 15000); }
+/* ---------------- Weed Watch camera ----------------
+   Detection runs here, in the browser, on each frame from api/cam (or the laptop webcam with ?cam=webcam).
+   - Only pixels inside the "lake area" box count (drag on the tile to redraw it).
+   - "Ignore boat" learns the green that is in view now (boat roof, plants) and masks it out.
+   - Night / IR (grey picture) and heavy glare pause detection instead of guessing.
+   - A mat must stay above the threshold for 3 frames, and after a report the camera re-arms only
+     when the mat leaves (cover drops well below) or grows a lot after 10 minutes. No spam.
+   - Only the laptop's own screen (localhost, or ?reporter=1) files reports; other viewers just watch. */
+const CW = 192;                                   // analysis width (fast, enough for mats)
+const camLS = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem("kr.cam." + k)); localStorage.setItem("kr.cam." + k, JSON.stringify(v)); } catch { return null; } };
+const qs = new URLSearchParams(location.search);
+const CAM = {
+  place: "punnamada", fixed: null, threshold: +(qs.get("thr") || camLS("thr") || 30),
+  roi: camLS("roi") || { x0: 0, y0: 0.4, x1: 1, y1: 1 },
+  ignore: null, hist: [], streak: 0, armed: true, lastReport: null,
+  moments: camLS("moments") || [], source: qs.get("cam") === "webcam" ? "webcam" : "api",
+  reporter: qs.get("reporter") === "1" || ["localhost", "127.0.0.1"].includes(location.hostname),
+  frame: null, W: 0, H: 0, started: false,
+};
+{ const ig = camLS("ignore"); if (ig) CAM.ignore = { w: ig.w, h: ig.h, bits: Uint8Array.from(atob(ig.b), (c) => c.charCodeAt(0)) }; }
+
+function hsv(r, g, b) {
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return [(h + 360) % 360, mx ? d / mx : 0, mx / 255];
 }
-function spark(a) { const bars = "▁▂▃▄▅▆▇█"; return a.map((v) => bars[Math.min(7, Math.floor(v / 12.5))]).join(""); }
-async function blobToThumb(blob) { return (await analysePhoto(blob)).thumb; }
+
+function analyseFrame(src) {
+  const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height;
+  const W = CW, H = Math.max(1, Math.round((sh / sw) * W));
+  const c = analyseFrame.c || (analyseFrame.c = document.createElement("canvas"));
+  c.width = W; c.height = H;
+  const g = c.getContext("2d", { willReadFrequently: true }); g.drawImage(src, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data;
+  const mask = new Uint8Array(W * H);           // 1 green, 2 ignored, 3 glare, 0 other
+  const { x0, y0, x1, y1 } = CAM.roi;
+  const rx0 = Math.floor(x0 * W), rx1 = Math.ceil(x1 * W), ry0 = Math.floor(y0 * H), ry1 = Math.ceil(y1 * H);
+  const ig = CAM.ignore && CAM.ignore.w === W && CAM.ignore.h === H ? CAM.ignore.bits : null;
+  let valid = 0, green = 0, glare = 0, sumV = 0, sumS = 0, n = 0, bx0 = W, by0 = H, bx1 = -1, by1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, p = i * 4, r = d[p], gg = d[p + 1], b = d[p + 2];
+    const [h, s, v] = hsv(r, gg, b);
+    sumV += v; sumS += s; n++;
+    if (x < rx0 || x >= rx1 || y < ry0 || y >= ry1) continue;
+    if (ig && ig[i]) { mask[i] = 2; continue; }
+    if (v > 0.88 && s < 0.18) { mask[i] = 3; glare++; continue; }   // sun glint / sky reflection
+    valid++;
+    // Water hyacinth: yellow-green to green leaves, reasonably saturated, not in shadow.
+    if (h >= 62 && h <= 160 && s > 0.2 && v > 0.13 && gg > r && gg >= b) {
+      mask[i] = 1; green++;
+      if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y;
+    }
+  }
+  const meanV = sumV / n, meanS = sumS / n, roiN = Math.max(1, (rx1 - rx0) * (ry1 - ry0));
+  let mode = "ok";
+  if (meanV < 0.12) mode = "dark";
+  else if (meanS < 0.05) mode = "ir";
+  else if (glare / roiN > 0.45) mode = "glare";
+  const cover = valid > roiN * 0.2 ? Math.round((green / valid) * 100) : 0;
+  return { W, H, mask, cover: mode === "ok" ? cover : 0, rawCover: cover, mode, box: bx1 >= 0 ? [bx0, by0, bx1, by1] : null };
+}
+
+function drawOverlay(a) {
+  const cv = $("#camOverlay"); if (!cv) return;
+  cv.width = a.W; cv.height = a.H;
+  const g = cv.getContext("2d"), img = g.createImageData(a.W, a.H);
+  for (let i = 0; i < a.mask.length; i++) {
+    const m = a.mask[i], p = i * 4;
+    if (m === 1) { img.data[p] = 57; img.data[p + 1] = 255; img.data[p + 2] = 136; img.data[p + 3] = 150; }
+    else if (m === 2) { img.data[p] = 255; img.data[p + 1] = 80; img.data[p + 2] = 80; img.data[p + 3] = 35; }
+  }
+  g.putImageData(img, 0, 0);
+  const { x0, y0, x1, y1 } = CAM.roi;
+  g.setLineDash([4, 3]); g.strokeStyle = "rgba(255,255,255,.7)"; g.lineWidth = 1;
+  g.strokeRect(x0 * a.W + 0.5, y0 * a.H + 0.5, (x1 - x0) * a.W - 1, (y1 - y0) * a.H - 1);
+  if (a.box && a.cover >= CAM.threshold * 0.5) {
+    const [bx0, by0, bx1, by1] = a.box;
+    g.setLineDash([]); g.strokeStyle = "#39ff88"; g.lineWidth = 1.5;
+    g.strokeRect(bx0, by0, bx1 - bx0, by1 - by0);
+  }
+}
+
+function camState(a) {
+  if (a.mode === "dark") return ["Too dark. Detection paused until dawn.", "paused"];
+  if (a.mode === "ir") return ["Night IR mode (no colour). Paused.", "paused"];
+  if (a.mode === "glare") return ["Sun glare on water. Paused.", "paused"];
+  if (!CAM.armed) return [`Reported. Re-arms when the mat moves on.`, "done"];
+  if (CAM.streak > 0) return [`Mat detected, confirming ${CAM.streak}/3`, "warn"];
+  return ["Watching the lake", "ok"];
+}
+
+async function camTick(src) {
+  const a = analyseFrame(src);
+  CAM.frame = a;
+  CAM.hist = [...CAM.hist.slice(-29), a.cover];
+  const sm = [...CAM.hist.slice(-3)].sort((x, y) => x - y)[Math.min(1, CAM.hist.length - 1)] ?? 0; // median of 3
+  drawOverlay(a);
+  // Debounce + hysteresis
+  if (a.mode !== "ok") CAM.streak = 0;
+  else if (CAM.armed && sm >= CAM.threshold) CAM.streak++;
+  else CAM.streak = 0;
+  if (!CAM.armed && CAM.lastReport) {
+    const gone = sm < CAM.threshold * 0.6;
+    const grew = Date.now() - CAM.lastReport.ts > 600000 && sm >= CAM.lastReport.cover + 15;
+    if (gone || grew) CAM.armed = true;
+  }
+  // Report without blocking the frame loop (the voice warning can take a few seconds).
+  if (CAM.streak >= 3) { CAM.streak = 0; camReport(src, sm).catch((e) => console.error(e)); }
+  const [msg, cls] = camState(a);
+  $("#camPct").textContent = a.mode === "ok" ? `${sm}%` : "–";
+  $("#camPct").className = "cam-pct " + (sm >= CAM.threshold && a.mode === "ok" ? "hot" : "");
+  $("#camState").textContent = msg; $("#camState").className = "cam-state " + cls;
+  $("#camStat").innerHTML = `alert at ${CAM.threshold}% · ${spark(CAM.hist)}${CAM.reporter ? "" : " · view only"}`;
+}
+
+async function camReport(src, cover) {
+  CAM.armed = false; CAM.lastReport = { ts: Date.now(), cover };
+  const thumb = camSnapshot(src);
+  CAM.moments = [{ ts: Date.now(), cover, thumb: camSnapshot(src, 160) }, ...CAM.moments].slice(0, 4);
+  camLS("moments", CAM.moments); renderMoments();
+  const flash = $("#camFlash"); flash.hidden = false; flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
+  setTimeout(() => (flash.hidden = true), 4000);
+  if (!CAM.reporter) return;
+  const size = cover > 70 ? "huge" : cover > 50 ? "large" : "medium";
+  const p = PLACES.find((x) => x.id === CAM.place) || PLACES[0];
+  toast(`📹 Weed Watch camera: ${cover}% hyacinth cover near ${p.en}. Auto-reporting.`, true);
+  const item = { reporter: "Weed Watch camera", source: "camera",
+    transcript: `ക്യാമറ: ${p.ml} ഭാഗത്ത് ${SIZES[size].ml} കുളവാഴക്കൂട്ടം (${cover}% പച്ച)`,
+    translation: `Camera: ${SIZES[size].en.toLowerCase()} hyacinth mat detected near ${p.en} (${cover}% of the lake in view).`,
+    extraction: { place_id: p.id, size, blocking: false }, photo: thumb, green: cover, gps: CAM.fixed };
+  // Share with every screen and phone via the live feed; this screen skips its own item.
+  fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item) })
+    .then((r) => r.json()).then((j) => { if (j.seq) ownFeedSeqs.add(j.seq); }).catch(() => {});
+  await submitReport({ remote: { ...item, fixed: CAM.fixed } });
+}
+
+function camSnapshot(src, w = 480) {
+  const sw = src.videoWidth || src.naturalWidth || src.width, sh = src.videoHeight || src.naturalHeight || src.height;
+  const c = document.createElement("canvas"); c.width = w; c.height = Math.round((sh / sw) * w);
+  const g = c.getContext("2d"); g.drawImage(src, 0, 0, c.width, c.height);
+  g.drawImage($("#camOverlay"), 0, 0, c.width, c.height);
+  g.fillStyle = "rgba(0,0,0,.55)"; g.fillRect(0, c.height - 22, c.width, 22);
+  g.fillStyle = "#39ff88"; g.font = "bold 13px system-ui"; g.fillText(`KULAVAZHA ${CAM.hist.at(-1) ?? ""}% · ${new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`, 8, c.height - 7);
+  return c.toDataURL("image/jpeg", 0.72);
+}
+
+function renderMoments() {
+  const el = $("#camMoments"); if (!el) return;
+  el.innerHTML = CAM.moments.map((m) => `<figure><img src="${m.thumb}" alt=""><figcaption>✓ ${time(m.ts)} · ${m.cover}%</figcaption></figure>`).join("");
+  el.hidden = !CAM.moments.length;
+}
+
+async function camLoop() {
+  if (CAM.started) return; CAM.started = true;
+  $("#camCard").hidden = false; renderMoments();
+  if (CAM.source === "webcam") {
+    const v = $("#camVideo");
+    try { v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 640 } }); await v.play(); }
+    catch { $("#camState").textContent = "Webcam blocked"; return; }
+    v.hidden = false; $("#camImg").hidden = true;
+    setInterval(() => v.videoWidth && camTick(v), 2000);
+    return;
+  }
+  const img = $("#camImg");
+  const next = async () => {
+    try {
+      const r = await fetch(`api/cam?t=${Date.now()}`);
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+      const url = URL.createObjectURL(await r.blob());
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      URL.revokeObjectURL(camLoop.prev || ""); camLoop.prev = url;
+      $("#camLive").className = "cam-live on";
+      await camTick(img);
+      setTimeout(next, 2000);
+    } catch (e) {
+      $("#camLive").className = "cam-live";
+      $("#camState").textContent = `Camera offline (${e.message}). Retrying…`; $("#camState").className = "cam-state paused";
+      setTimeout(next, 5000);
+    }
+  };
+  next();
+}
+
+/* Tile controls: drag to draw the lake area, learn the boat, threshold, big-screen view */
+(() => {
+  const wrap = $("#camWrap"); if (!wrap) return;
+  let drag = null;
+  const pt = (e) => { const r = wrap.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]; };
+  wrap.addEventListener("pointerdown", (e) => { if (!wrap.classList.contains("edit")) return; drag = pt(e); wrap.setPointerCapture(e.pointerId); });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!drag) return; const [x, y] = pt(e);
+    CAM.roi = { x0: Math.min(drag[0], x), y0: Math.min(drag[1], y), x1: Math.max(drag[0], x), y1: Math.max(drag[1], y) };
+    if (CAM.frame) drawOverlay(CAM.frame);
+  });
+  wrap.addEventListener("pointerup", () => {
+    if (!drag) return; drag = null;
+    if (CAM.roi.x1 - CAM.roi.x0 < 0.05 || CAM.roi.y1 - CAM.roi.y0 < 0.05) CAM.roi = { x0: 0, y0: 0.4, x1: 1, y1: 1 };
+    camLS("roi", CAM.roi); wrap.classList.remove("edit"); $("#camRoiBtn").classList.remove("on");
+  });
+  $("#camRoiBtn").onclick = () => { wrap.classList.toggle("edit"); $("#camRoiBtn").classList.toggle("on"); toast("Drag on the picture to box the lake water only."); };
+  $("#camBoatBtn").onclick = () => {
+    const a = CAM.frame; if (!a) return;
+    // Grow the current green by 2 px so edges of the boat roof are covered too.
+    const bits = new Uint8Array(a.W * a.H);
+    for (let y = 0; y < a.H; y++) for (let x = 0; x < a.W; x++) if (a.mask[y * a.W + x] === 1 || (CAM.ignore?.bits?.[y * a.W + x]))
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < a.H && xx >= 0 && xx < a.W) bits[yy * a.W + xx] = 1; }
+    CAM.ignore = { w: a.W, h: a.H, bits };
+    camLS("ignore", { w: a.W, h: a.H, b: btoa(String.fromCharCode(...bits)) });
+    toast("Learned the green in view now (boat, plants). It will be ignored.");
+  };
+  $("#camClearBtn").onclick = () => { CAM.ignore = null; camLS("ignore", null); CAM.moments = []; camLS("moments", []); CAM.armed = true; renderMoments(); toast("Camera mask and moments cleared."); };
+  $("#camThr").value = CAM.threshold; $("#camThrV").textContent = CAM.threshold + "%";
+  $("#camThr").oninput = (e) => { CAM.threshold = +e.target.value; $("#camThrV").textContent = CAM.threshold + "%"; camLS("thr", CAM.threshold); };
+  $("#camBigBtn").onclick = () => $("#camCard").classList.toggle("big");
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#camCard").classList.remove("big"); });
+})();
+function spark(a) { const bars = "▁▂▃▄▅▆▇█"; return a.slice(-20).map((v) => bars[Math.min(7, Math.floor(v / 12.5))]).join(""); }
 
 /* ---------------- Boot ---------------- */
 load();
@@ -600,4 +793,7 @@ refreshFerryColors(); renderJobs(); renderPilot();
 loadWind();
 initMode();
 drawQR();
-fetch("api/status").then((r) => r.json()).then((j) => { if (j.public_url) drawQR(j.public_url.replace(/\/?$/, "/")); if (j.camera) { CAM.place = j.cam_place || CAM.place; camLoop(); } }).catch(() => {});
+fetch("api/status").then((r) => r.json()).then((j) => { if (j.public_url) drawQR(j.public_url.replace(/\/?$/, "/")); if (j.camera || CAM.source === "webcam") {
+    fetch("api/cam/status").then((r) => r.json()).then((c) => { CAM.place = c.place || CAM.place; if (c.lat && c.lng) CAM.fixed = [+c.lat, +c.lng]; }).catch(() => {});
+    camLoop();
+  } }).catch(() => { if (CAM.source === "webcam") camLoop(); });

@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, sarvam
+from . import camera, config, sarvam
 from .extract import extract_report
 
 app = FastAPI(title="Kulavazha Radar", description="Voice-first water hyacinth radar for Vembanad Lake, on Sarvam AI")
@@ -62,7 +62,7 @@ def ms_since(t0: float) -> int:
 
 @app.get("/api/status")
 async def status():
-    return {"ok": True, "live": bool(config.SARVAM_API_KEY), "camera": bool(config.CAM_URL), "cam_place": config.CAM_PLACE,
+    return {"ok": True, "live": bool(config.SARVAM_API_KEY), "camera": bool(camera.current_url()), "cam_place": camera.status()["place"],
             "public_url": config.PUBLIC_URL, "backend": "python-fastapi"}
 
 
@@ -270,29 +270,17 @@ async def feed_post(item: dict):
 # 8. Weed Watch camera (CP Plus or any RTSP / snapshot URL; laptop only) ---------------------
 @app.get("/api/cam")
 async def cam():
-    url = config.CAM_URL
-    if not url:
+    if not camera.ensure_running():
         return JSONResponse({"error": "CAM_URL not set"}, status_code=404)
-    if url.startswith("http"):
-        async with sarvam.httpx.AsyncClient(timeout=6) as c:
-            r = await c.get(url)
-        return Response(r.content, media_type="image/jpeg", headers={"cache-control": "no-store"})
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        return JSONResponse({"error": "ffmpeg not installed"}, status_code=500)
-    args = [ffmpeg, "-hide_banner", "-loglevel", "error"]
-    if url.startswith("rtsp"):
-        args += ["-rtsp_transport", "tcp"]
-    args += ["-i", url, "-frames:v", "1", "-vf", "scale=640:-1", "-q:v", "5", "-f", "image2", "pipe:1"]
-    proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-    try:
-        out, _ = await asyncio.wait_for(proc.communicate(), timeout=8)
-    except asyncio.TimeoutError:
-        proc.kill()
-        return JSONResponse({"error": "camera timeout"}, status_code=504)
-    if not out:
-        return JSONResponse({"error": "no frame"}, status_code=502)
-    return Response(out, media_type="image/jpeg", headers={"cache-control": "no-store"})
+    if not camera.STATE["jpeg"]:
+        return JSONResponse({"error": camera.STATE["error"] or "waiting for first frame"}, status_code=503)
+    return Response(camera.STATE["jpeg"], media_type="image/jpeg",
+                    headers={"cache-control": "no-store", "x-frame-age": str(round(time.time() - camera.STATE["ts"], 1))})
+
+
+@app.get("/api/cam/status")
+async def cam_status():
+    return camera.status()
 
 
 # Frontend (local run). On Vercel, public/ is served by the CDN instead.

@@ -115,9 +115,25 @@
       </div>
 
       <div class="card cam" id="camCard" hidden>
-        <div class="card-h"><span class="num">⦿</span> Weed Watch camera</div>
-        <img id="camImg" alt="Camera frame" />
+        <div class="card-h"><span class="num">⦿</span> Weed Watch camera <span id="camLive" class="cam-live">LIVE</span>
+          <button id="camBigBtn" class="btn ghost small cam-big-btn" title="Big screen (Esc to close)">⤢</button></div>
+        <div id="camWrap" class="cam-wrap">
+          <img id="camImg" alt="Camera frame" /><video id="camVideo" muted playsinline hidden></video>
+          <canvas id="camOverlay"></canvas>
+          <div id="camPct" class="cam-pct">–</div>
+          <div id="camFlash" class="cam-flash" hidden>✓ AUTO-REPORTED</div>
+        </div>
+        <div id="camState" class="cam-state">Connecting to camera…</div>
         <div class="row"><span id="camStat" class="muted small">Waiting for frame…</span></div>
+        <div id="camMoments" class="cam-moments" hidden></div>
+        <details class="cam-tools"><summary class="muted small">Camera setup</summary>
+          <div class="row">
+            <button id="camRoiBtn" class="btn ghost small">Draw lake area</button>
+            <button id="camBoatBtn" class="btn ghost small">Ignore boat green</button>
+            <button id="camClearBtn" class="btn ghost small">Reset</button>
+          </div>
+          <label class="muted small">Alert at <b id="camThrV"></b> <input id="camThr" type="range" min="10" max="80" step="5"></label>
+        </details>
       </div>
 
       <footer class="foot">
