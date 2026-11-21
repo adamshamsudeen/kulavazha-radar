@@ -28,7 +28,8 @@ TTS_SPEAKER = os.environ.get("SARVAM_TTS_SPEAKER", "anand")
 CAM_URL = os.environ.get("CAM_URL", "")
 CAM_PLACE = os.environ.get("CAM_PLACE", "punnamada")
 # Public base URL (e.g. a tunnel to this laptop) used for the "report from your phone" QR code.
-PUBLIC_URL = os.environ.get("PUBLIC_URL", "")
+# Render sets RENDER_EXTERNAL_URL itself, so the QR code points at the Render URL with no extra setup.
+PUBLIC_URL = os.environ.get("PUBLIC_URL") or os.environ.get("RENDER_EXTERNAL_URL", "")
 
 DATA = json.loads((PUBLIC / "places.json").read_text(encoding="utf-8"))
 PLACES = DATA["places"]

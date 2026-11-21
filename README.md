@@ -37,3 +37,11 @@ Set `CAM_URL` (e.g. `rtsp://admin:PASS@192.168.1.64:554/cam/realmonitor?channel=
 
 ## Offline demo audio
 `python -m tools.bake_audio` writes Bulbul voice files into `public/audio/` so demo mode speaks with real Sarvam voices without network.
+
+## Backup deploy on Render (free)
+
+1. Open https://render.com/deploy?repo=https://github.com/adamshamsudeen/kulavazha-radar and sign in with GitHub.
+2. Paste your Sarvam key into `SARVAM_API_KEY` when asked, then click **Apply**.
+3. Wait for the first build (about 3 minutes). Your URL is `https://kulavazha-radar-xxxx.onrender.com`. The QR code uses it automatically, via `RENDER_EXTERNAL_URL`.
+
+Free services sleep after about 15 minutes without traffic, and the first visit after that takes about a minute. Open the URL a few minutes before you demo. The live feed is in memory, so it clears whenever the service sleeps. The camera grabber needs ffmpeg, so it's off on Render.
