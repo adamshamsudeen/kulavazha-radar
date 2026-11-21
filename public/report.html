@@ -3,137 +3,315 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Report kulavazha · കുളവാഴ റിപ്പോർട്ട്</title>
-  <meta name="theme-color" content="#0b2b2a" />
+  <title>കുളവാഴ റിപ്പോർട്ട് · Kulavazha Radar</title>
+  <meta name="theme-color" content="#071a1a" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%230b2b2a'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%2339d98a' stroke-width='3'/%3E%3Ccircle cx='32' cy='32' r='9' fill='%2339d98a'/%3E%3C/svg%3E" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
   <style>
-    body { min-height: 100%; }
-    .phone { max-width: 460px; margin: 0 auto; padding: 18px 16px 28px; display: grid; gap: 16px; }
-    .hero { text-align: center; display: grid; gap: 6px; }
-    .hero h1 { font-size: 22px; }
-    .hero .ml { font-size: 18px; color: var(--ink); }
-    .big-mic { width: 168px; height: 168px; justify-self: center; }
-    .big-mic svg { width: 64px; height: 64px; }
-    .status { text-align: center; font-size: 16px; min-height: 48px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
-    .field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
-    .field input { background: #0a201f; border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 15px; }
-    .result { display: none; }
-    .result.on { display: grid; }
-    .photo-btn { justify-self: center; }
-    .done-badge { font-size: 42px; text-align: center; }
+    /* Boat mode: one big action, minimal reading, big targets, works one-handed in sunlight. */
+    html, body { background: #000; }
+    body { font-size: 20px; color: #fff; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .phone { max-width: 480px; min-height: 100dvh; margin: 0 auto; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); display: grid; grid-template-rows: auto 1fr auto; gap: 12px; }
+    .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 48px; }
+    .net { font-size: 16px; padding: 6px 12px; border-radius: 999px; background: #12302d; }
+    .net.off { background: #5a1d17; }
+    .who { font-size: 16px; background: #12302d; color: #fff; border: 0; border-radius: 999px; padding: 10px 14px; min-height: 48px; }
+    .stage { display: grid; align-content: center; justify-items: center; gap: 18px; text-align: center; }
+    .ask { font-size: 30px; font-weight: 700; line-height: 1.3; font-family: "Noto Sans Malayalam", sans-serif; }
+    .ask small { display: block; font-size: 16px; font-weight: 400; color: #9fc7bd; font-family: Inter, sans-serif; margin-top: 4px; }
+    .bigmic { width: min(72vw, 280px); height: min(72vw, 280px); border-radius: 50%; border: 0; background: #39d98a; color: #032; display: grid; place-items: center; box-shadow: 0 0 0 10px rgba(57,217,138,.18); touch-action: manipulation; }
+    .bigmic svg { width: 42%; height: 42%; }
+    .bigmic.rec { background: #ff4d3d; color: #fff; animation: pulse 1.1s infinite; }
+    .bigmic.busy { background: #ffb547; color: #3a2400; }
+    .bigmic.busy svg { animation: spin 1s linear infinite; }
+    .hint { font-size: 20px; min-height: 56px; font-family: "Noto Sans Malayalam", sans-serif; }
+    .hint small { display: block; font-size: 15px; color: #9fc7bd; font-family: Inter, sans-serif; }
+    .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tool { min-height: 76px; border-radius: 18px; border: 2px solid #2a5a55; background: #0d2624; color: #fff; font-size: 30px; display: grid; place-items: center; gap: 2px; padding: 8px; }
+    .tool span { font-size: 15px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
+    .tool.on { border-color: #39d98a; background: #12392f; }
+    .sheet { position: fixed; inset: 0; background: #000; z-index: 50; display: none; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); }
+    .sheet.on { display: grid; grid-template-rows: auto 1fr auto; gap: 14px; max-width: 480px; margin: 0 auto; }
+    .heard { font-size: 18px; color: #cfe; font-family: "Noto Sans Malayalam", sans-serif; background: #0d2624; border-radius: 14px; padding: 12px; }
+    .what { display: grid; gap: 10px; align-content: center; text-align: center; }
+    .what .place { font-size: 34px; font-weight: 700; font-family: "Noto Sans Malayalam", sans-serif; }
+    .what .size { font-size: 24px; font-family: "Noto Sans Malayalam", sans-serif; }
+    .what .blob { justify-self: center; border-radius: 50%; background: #39d98a; opacity: .85; }
+    .yn { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .yn button { min-height: 96px; border-radius: 20px; border: 0; font-size: 40px; display: grid; place-items: center; }
+    .yn button span { font-size: 18px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
+    .yes { background: #39d98a; color: #032; }
+    .no { background: #2b2f2f; color: #fff; }
+    .count { font-size: 16px; color: #9fc7bd; text-align: center; }
+    .sizes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: center; }
+    .sizes button { min-height: 120px; border-radius: 20px; border: 2px solid #2a5a55; background: #0d2624; color: #fff; display: grid; place-items: center; gap: 6px; font-size: 18px; font-family: "Noto Sans Malayalam", Inter, sans-serif; }
+    .sizes i { display: block; border-radius: 50%; background: #39d98a; }
+    .done { display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; font-size: 26px; font-family: "Noto Sans Malayalam", sans-serif; }
+    .done b { font-size: 96px; }
+    .namebox input { width: 100%; font-size: 22px; padding: 14px; border-radius: 14px; border: 2px solid #2a5a55; background: #0d2624; color: #fff; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <main class="phone">
-    <div class="hero">
-      <div class="logo" style="justify-self:center" aria-hidden="true"><span></span></div>
-      <h1>Kulavazha Radar</h1>
-      <div class="ml">കുളവാഴ കണ്ടോ? പറയൂ.</div>
-      <div class="muted small">Seen a weed mat? Tap the mic and tell us in Malayalam: where, and how big.</div>
+    <div class="bar">
+      <span id="net" class="net">📶</span>
+      <button id="whoBtn" class="who" aria-label="Your name">👤 <span id="whoName">പേര്</span></button>
     </div>
 
-    <label class="field">Your name · പേര്
-      <input id="name" placeholder="e.g. Rajan, ferry crew" autocomplete="name" />
-    </label>
+    <section class="stage">
+      <div class="ask">കുളവാഴ എവിടെ? എത്ര വലുത്?<small>Where is the weed? How big? Say it.</small></div>
+      <button id="mic" class="bigmic" aria-label="Tap and speak">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+      </button>
+      <div id="hint" class="hint">ഒന്ന് തൊടുക, പറയുക, വീണ്ടും തൊടുക<small>Tap · speak · tap again</small></div>
+    </section>
 
-    <button id="mic" class="mic big-mic" aria-label="Tap to speak">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
-    </button>
-    <div id="status" class="status">തൊട്ട് സംസാരിക്കൂ · Tap and speak</div>
-
-    <label class="btn ghost photo-btn">📷 Add photo · ഫോട്ടോ <input id="photo" type="file" accept="image/*" capture="environment" hidden /></label>
-    <div id="photoPrev" class="photo-preview" hidden></div>
-
-    <div id="result" class="card result">
-      <div class="done-badge">✅</div>
-      <div id="resText" class="last"></div>
-      <button id="again" class="btn">Report another · വീണ്ടും</button>
+    <div class="tools">
+      <label class="tool" id="photoTool">📷<span>ഫോട്ടോ</span><input id="photo" type="file" accept="image/*" capture="environment" hidden /></label>
+      <button class="tool" id="tapTool">👆<span>പറയാതെ അയക്കാം</span></button>
     </div>
-    <p class="muted small" style="text-align:center">Voice understood by Sarvam AI · Your report appears on the control room map instantly</p>
   </main>
-  <div id="toast" class="toast" hidden></div>
+
+  <!-- Confirm what we understood -->
+  <section id="confirm" class="sheet" aria-live="polite">
+    <div id="heard" class="heard"></div>
+    <div class="what">
+      <div id="cBlob" class="blob"></div>
+      <div id="cPlace" class="place"></div>
+      <div id="cSize" class="size"></div>
+    </div>
+    <div>
+      <div class="yn">
+        <button class="yes" id="yes">✅<span>ശരി · Send</span></button>
+        <button class="no" id="no">🔁<span>വീണ്ടും · Redo</span></button>
+      </div>
+      <div id="countdown" class="count"></div>
+    </div>
+  </section>
+
+  <!-- Report without speaking: pick a size, location from GPS -->
+  <section id="tapSheet" class="sheet">
+    <div class="ask" style="font-size:24px;text-align:center">എത്ര വലുത്?<small>How big? Your location is used.</small></div>
+    <div class="sizes" id="sizeGrid"></div>
+    <button class="tool" id="tapCancel">✖<span>തിരികെ · Back</span></button>
+  </section>
+
+  <!-- Done -->
+  <section id="doneSheet" class="sheet">
+    <div></div>
+    <div class="done"><b id="doneIcon">✅</b><div id="doneText">നന്ദി! അറിയിച്ചു.</div><small id="doneSub" style="font-size:16px;color:#9fc7bd"></small></div>
+    <button class="tool" id="doneOk" style="min-height:96px">🎙️<span>വീണ്ടും റിപ്പോർട്ട് · Report again</span></button>
+  </section>
+
+  <!-- Name (optional, asked once) -->
+  <section id="nameSheet" class="sheet">
+    <div class="ask" style="font-size:24px">👤 പേര് (വേണമെങ്കിൽ)<small>Your name, optional</small></div>
+    <div class="namebox" style="align-self:center"><input id="nameInput" autocomplete="name" placeholder="ഉദാ: രാജൻ" /></div>
+    <button class="tool yes" id="nameOk" style="min-height:96px">✅<span>ശരി · OK</span></button>
+  </section>
+
 <script type="module">
 import { PLACES, SIZES, DEMO_REPORTS } from "./data.js";
 const $ = (s) => document.querySelector(s);
-let live = false, photo = null, gps = null, rec = null;
-try { $("#name").value = localStorage.getItem("kr_name") || ""; } catch {}
-$("#name").onchange = () => { try { localStorage.setItem("kr_name", $("#name").value); } catch {} };
-fetch("api/status").then((r) => r.json()).then((j) => (live = !!j.live)).catch(() => {});
-navigator.geolocation?.getCurrentPosition((p) => (gps = [p.coords.latitude, p.coords.longitude]), () => {}, { timeout: 8000 });
+const OUTBOX = "kr_outbox_v1";
+let live = false, photo = null, gps = null, rec = null, pending = null, timer = null;
 
+/* ---------- small helpers: sound, vibration, storage ---------- */
+let ac;
+function beep(freq = 880, ms = 140, n = 1) {
+  try {
+    ac ||= new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < n; i++) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = freq; o.connect(g); g.connect(ac.destination);
+      const t = ac.currentTime + i * (ms / 1000 + 0.08);
+      g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + ms / 1000);
+      o.start(t); o.stop(t + ms / 1000);
+    }
+  } catch {}
+}
+const buzz = (p) => { try { navigator.vibrate?.(p); } catch {} };
+const ls = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const show = (id) => { document.querySelectorAll(".sheet").forEach((s) => s.classList.remove("on")); if (id) $(id).classList.add("on"); };
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---------- name (optional) ---------- */
+function setName(n) { ls.set("kr_name", n); $("#whoName").textContent = n || "പേര്"; }
+setName(ls.get("kr_name", ""));
+$("#whoBtn").onclick = () => { $("#nameInput").value = ls.get("kr_name", ""); show("#nameSheet"); };
+$("#nameOk").onclick = () => { setName($("#nameInput").value.trim()); show(null); };
+
+/* ---------- status, GPS, network ---------- */
+fetch("api/status").then((r) => r.json()).then((j) => (live = !!j.live)).catch(() => {});
+navigator.geolocation?.watchPosition((p) => (gps = [p.coords.latitude, p.coords.longitude]), () => {}, { enableHighAccuracy: true, maximumAge: 60000, timeout: 15000 });
+function netBadge() {
+  const n = ls.get(OUTBOX, []).length;
+  $("#net").textContent = navigator.onLine ? (n ? `📶 ⏳${n}` : "📶") : `📵 ⏳${n}`;
+  $("#net").classList.toggle("off", !navigator.onLine);
+}
+addEventListener("online", () => { netBadge(); flush(); });
+addEventListener("offline", netBadge);
+netBadge();
+
+/* ---------- photo ---------- */
 $("#photo").onchange = async (e) => {
   const f = e.target.files[0]; if (!f) return;
   const img = await createImageBitmap(f);
-  const W = 360, H = Math.round((img.height / img.width) * W);
+  const W = 320, H = Math.round((img.height / img.width) * W);
   const c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d"); g.drawImage(img, 0, 0, W, H);
   const d = g.getImageData(0, 0, W, H).data; let n = 0;
   for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2]; if (gg > 55 && gg > r * 1.08 && gg > b * 1.08) n++; }
-  photo = { thumb: c.toDataURL("image/jpeg", 0.7), green: Math.round((n / (W * H)) * 100) };
-  $("#photoPrev").hidden = false;
-  $("#photoPrev").innerHTML = `<img src="${photo.thumb}" alt=""><div>Photo ready · green ≈ ${photo.green}%</div>`;
+  photo = { thumb: c.toDataURL("image/jpeg", 0.6), green: Math.round((n / (W * H)) * 100) };
+  $("#photoTool").classList.add("on"); $("#photoTool").innerHTML = `✅<span>ഫോട്ടോ ശരി</span>`; buzz(60);
 };
 
+/* ---------- record ---------- */
 $("#mic").onclick = async () => {
   if ($("#mic").classList.contains("busy")) return;
-  if (rec && rec.state === "recording") return rec.stop();
-  if (!live) return send({ demo: DEMO_REPORTS[Math.floor(Math.random() * DEMO_REPORTS.length)] });
+  if (rec && rec.state === "recording") { rec.stop(); return; }
+  if (!live || !navigator.mediaDevices) { return understood(demoPick(), null); }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
-    rec = new MediaRecorder(stream, { mimeType: mime }); const chunks = [];
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+    rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 24000 } : undefined);
+    const chunks = [];
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     rec.onstop = async () => {
-      stream.getTracks().forEach((t) => t.stop()); $("#mic").classList.remove("rec");
-      const blob = new Blob(chunks, { type: rec.mimeType });
-      if (blob.size < 2000) { $("#status").textContent = "കേട്ടില്ല. വീണ്ടും ശ്രമിക്കൂ."; return; }
+      stream.getTracks().forEach((t) => t.stop()); clearTimeout(timer);
+      $("#mic").classList.remove("rec"); beep(520, 120); buzz(80);
+      const blob = new Blob(chunks, { type: (rec.mimeType || "audio/webm").split(";")[0] });
+      if (blob.size < 1500) { hint("കേട്ടില്ല. വീണ്ടും ശ്രമിക്കൂ.", "Didn't hear you. Try again."); return; }
       const b64 = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
-      send({ audio_b64: b64, mime: blob.type });
+      process({ audio_b64: b64, mime: blob.type });
     };
-    rec.start(); $("#mic").classList.add("rec");
-    $("#status").textContent = "കേൾക്കുന്നു… തീർന്നാൽ വീണ്ടും തൊടുക";
-    setTimeout(() => rec.state === "recording" && rec.stop(), 25000);
-  } catch { $("#status").textContent = "Microphone blocked. Allow mic access and retry."; }
+    rec.start(); beep(880, 140); buzz(60);
+    $("#mic").classList.add("rec");
+    hint("കേൾക്കുന്നു… പറഞ്ഞു കഴിഞ്ഞാൽ തൊടുക", "Listening… tap when done");
+    timer = setTimeout(() => rec.state === "recording" && rec.stop(), 25000);
+  } catch {
+    hint("മൈക്ക് അനുവദിക്കൂ", "Allow the microphone, or use 👆");
+  }
+};
+function hint(ml, en) { $("#hint").innerHTML = `${esc(ml)}<small>${esc(en)}</small>`; }
+function resetHint() { hint("ഒന്ന് തൊടുക, പറയുക, വീണ്ടും തൊടുക", "Tap · speak · tap again"); }
+
+async function process(audio) {
+  $("#mic").classList.add("busy"); hint("മനസ്സിലാക്കുന്നു…", "Understanding…");
+  try {
+    if (!navigator.onLine) throw new Error("offline");
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+    const res = await fetch("api/report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(audio), signal: ctl.signal });
+    clearTimeout(to);
+    const r = await res.json(); if (!res.ok) throw new Error(r.error || res.status);
+    understood(r, audio);
+  } catch {
+    // No network: keep the voice note and send it later. The control room processes it then.
+    queue({ kind: "audio", audio, gps, photo: photo?.thumb, green: photo?.green, reporter: ls.get("kr_name", "") || "Boatman", ts: Date.now() });
+    finish("⏳", "റിപ്പോർട്ട് സൂക്ഷിച്ചു. നെറ്റ് കിട്ടുമ്പോൾ അയക്കും.", "Saved. Will send when there is network.");
+  } finally { $("#mic").classList.remove("busy"); resetHint(); }
+}
+function demoPick() { const d = DEMO_REPORTS[Math.floor(Math.random() * DEMO_REPORTS.length)]; return { transcript: d.transcript, translation: d.translation, extraction: d.extraction, timings: null }; }
+
+/* ---------- confirm screen: show + say what we understood ---------- */
+function understood(r, audio) {
+  pending = r;
+  const ex = r.extraction || {};
+  const place = PLACES.find((p) => p.id === ex.place_id);
+  const size = SIZES[ex.size] || SIZES.medium;
+  $("#heard").textContent = `“${r.transcript}”`;
+  $("#cPlace").textContent = place ? `📍 ${place.ml}` : (gps ? "📍 നിങ്ങൾ ഇപ്പോൾ ഉള്ള സ്ഥലം" : "📍 ?");
+  $("#cSize").textContent = `${size.ml} കുളവാഴ${ex.blocking ? " · 🚫⛴️" : ""}`;
+  const px = { small: 60, medium: 90, large: 120, huge: 150 }[ex.size] || 90;
+  Object.assign($("#cBlob").style, { width: px + "px", height: px + "px" });
+  show("#confirm"); buzz([60, 60, 60]);
+  say(`${place ? place.ml + " ഭാഗത്ത്" : ""} ${size.ml} കുളവാഴ. ശരിയാണെങ്കിൽ പച്ച ബട്ടൺ അമർത്തുക.`);
+  // Auto-send after 8 s so a busy boatman doesn't have to look again.
+  let s = 8; const tick = () => { $("#countdown").textContent = `${s} സെക്കൻഡിൽ തനിയെ അയക്കും · auto-send in ${s}s`; if (s-- <= 0) send(); };
+  clearInterval(timer); tick(); timer = setInterval(tick, 1000);
+}
+$("#yes").onclick = () => send();
+$("#no").onclick = () => { clearInterval(timer); pending = null; show(null); stopVoice(); };
+
+async function send() {
+  clearInterval(timer); stopVoice();
+  if (!pending) return;
+  const r = pending; pending = null;
+  const item = { kind: "report", reporter: ls.get("kr_name", "") || "Boatman", transcript: r.transcript, translation: r.translation, extraction: r.extraction, photo: photo?.thumb, green: photo?.green, gps, timings: r.timings, source: live ? "phone" : "demo" };
+  const ok = await post(item);
+  if (!ok) queue(item);
+  photo = null; $("#photoTool").classList.remove("on"); $("#photoTool").innerHTML = `📷<span>ഫോട്ടോ</span><input id="photo" type="file" accept="image/*" capture="environment" hidden />`; $("#photo").onchange = photoHandler;
+  if (ok) { finish("✅", "നന്ദി! വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചു.", "Thank you. The harvest crew has been told."); playConfirm(); }
+  else finish("⏳", "സൂക്ഷിച്ചു. നെറ്റ് കിട്ടുമ്പോൾ അയക്കും.", "Saved. Will send when there is network.");
+}
+const photoHandler = $("#photo").onchange;
+
+/* ---------- tap-only report (no speaking) ---------- */
+$("#sizeGrid").innerHTML = Object.entries(SIZES).map(([k, s]) => {
+  const px = { small: 26, medium: 44, large: 64, huge: 84 }[k];
+  return `<button data-k="${k}"><i style="width:${px}px;height:${px}px"></i>${s.ml}<small style="font-size:13px;color:#9fc7bd">${s.en}</small></button>`;
+}).join("");
+$("#tapTool").onclick = () => show("#tapSheet");
+$("#tapCancel").onclick = () => show(null);
+$("#sizeGrid").onclick = (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const size = SIZES[b.dataset.k];
+  understood({ transcript: `👆 ${size.ml} കുളവാഴ (GPS)`, translation: `${size.en} hyacinth mat at reporter's GPS location (tap report)`, extraction: { place_id: null, size: b.dataset.k, blocking: false }, timings: null }, null);
 };
 
-async function send({ audio_b64, mime, demo }) {
-  $("#mic").classList.add("busy"); $("#status").textContent = "Sarvam AI മനസ്സിലാക്കുന്നു…";
+/* ---------- done ---------- */
+function finish(icon, ml, en) { $("#doneIcon").textContent = icon; $("#doneText").textContent = ml; $("#doneSub").textContent = en; show("#doneSheet"); netBadge(); buzz(icon === "✅" ? [80, 60, 160] : [300]); }
+$("#doneOk").onclick = () => { show(null); $("#mic").click(); };
+
+/* Space = clench to talk (EMG board, foot pedal or any keyboard). Space toggles the mic;
+   on the check screen it sends, and on the done screen it starts the next report. */
+addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  if (e.target.closest && e.target.closest("input, textarea, select")) return;
+  e.preventDefault();
+  const open = document.querySelector(".sheet.on");
+  if (!open) return $("#mic").click();
+  if (open.id === "confirm") return $("#yes").click();
+  if (open.id === "doneSheet") return $("#doneOk").click();
+});
+
+/* ---------- outbox (works with patchy data) ---------- */
+function queue(item) { const q = ls.get(OUTBOX, []); if (item.audio && JSON.stringify(item).length > 1_500_000) delete item.audio; q.push(item); ls.set(OUTBOX, q.slice(-20)); netBadge(); }
+async function post(item) {
   try {
-    let r;
-    if (demo) r = { transcript: demo.transcript, translation: demo.translation, extraction: demo.extraction, timings: null };
-    else {
-      const res = await fetch("api/report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ audio_b64, mime }) });
-      r = await res.json(); if (!res.ok) throw new Error(r.error || res.status);
+    if (!navigator.onLine) return false;
+    let body = item;
+    if (item.kind === "audio") {
+      const r = await (await fetch("api/report", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item.audio) })).json();
+      if (!r.transcript) return false;
+      body = { ...item, kind: "report", audio: undefined, transcript: r.transcript, translation: r.translation, extraction: r.extraction, timings: r.timings, source: "phone-late" };
     }
-    const reporter = $("#name").value.trim() || "Boatman";
-    await fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reporter, transcript: r.transcript, translation: r.translation, extraction: r.extraction, photo: photo?.thumb, green: photo?.green, gps, timings: r.timings, source: demo ? "demo" : "phone" }) });
-    const place = PLACES.find((p) => p.id === r.extraction?.place_id);
-    const size = SIZES[r.extraction?.size] || SIZES.medium;
-    $("#resText").innerHTML = `<div class="ml-text">“${esc(r.transcript)}”</div>
-      ${r.translation ? `<div class="en">${esc(r.translation)}</div>` : ""}
-      <div class="tagrow"><span class="t-tag">📍 ${esc(place ? place.en : "Location from GPS")}</span><span class="t-tag">${size.en}</span>${r.extraction?.blocking ? `<span class="t-tag alert">Boats blocked</span>` : ""}</div>
-      <div class="ml-text" style="font-size:14px">നന്ദി! റിപ്പോർട്ട് രേഖപ്പെടുത്തി. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചു.</div>`;
-    $("#result").classList.add("on"); $("#status").textContent = "";
-    photo = null; $("#photoPrev").hidden = true;
-    speakConfirm();
-  } catch (e) {
-    $("#status").textContent = `Failed: ${e.message}`;
-  } finally { $("#mic").classList.remove("busy"); }
+    const res = await fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    return res.ok;
+  } catch { return false; }
 }
-async function speakConfirm() {
-  const text = "നന്ദി. നിങ്ങളുടെ റിപ്പോർട്ട് രേഖപ്പെടുത്തി. വിളവെടുപ്പ് സംഘത്തെ അറിയിച്ചിട്ടുണ്ട്.";
+async function flush() {
+  const q = ls.get(OUTBOX, []); if (!q.length) return;
+  const left = [];
+  for (const it of q) if (!(await post(it))) left.push(it);
+  ls.set(OUTBOX, left); netBadge();
+}
+setInterval(flush, 20000); flush();
+
+/* ---------- voice out ---------- */
+let voice;
+async function say(text) {
+  stopVoice();
   try {
-    if (!live) throw 0;
+    if (!live || !navigator.onLine) throw 0;
     const r = await fetch("api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, speaker: "kavitha" }) });
     const j = await r.json(); if (!j.audio_b64) throw 0;
-    new Audio(`data:audio/wav;base64,${j.audio_b64}`).play();
-  } catch { new Audio("audio/confirm.wav").play().catch(() => {}); }
+    voice = new Audio(`data:audio/wav;base64,${j.audio_b64}`); voice.play().catch(() => {});
+  } catch {}
 }
-$("#again").onclick = () => { $("#result").classList.remove("on"); $("#status").textContent = "തൊട്ട് സംസാരിക്കൂ · Tap and speak"; };
-function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function stopVoice() { try { voice?.pause(); } catch {} }
+function playConfirm() { stopVoice(); voice = new Audio("audio/confirm.wav"); voice.play().catch(() => {}); }
 </script>
 </body>
 </html>
