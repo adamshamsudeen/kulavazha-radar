@@ -10,6 +10,17 @@ A data layer for turning a nuisance weed into paid harvest work and MushPellets 
 
 Quick start: `pip install -r requirements.txt`, then put `SARVAM_API_KEY` in `.env` and run `uvicorn backend.app:app --port 3000`.
 
+## About kulavazha (water hyacinth)
+- **What it is:** *Eichhornia crassipes* (now *Pontederia crassipes*), a free-floating plant from South America. In Kuttanad it's called **കുളവാഴ (kulavazha)** or **പോള / പോളപ്പായൽ (pola)**.
+- **"Terror of Bengal":** that's what it was called in the early 1900s, after it choked the rivers and canals of Bengal.
+- **Mostly water:** about 92% water. So 100 t of wet weed gives only about 8 t of dry matter, which is why this app counts wet tonnes and then converts.
+- **Grows fast:** mats can double in area in a couple of weeks in warm, nutrient-rich water, then break off and drift with wind and current.
+- **Salt kills it:** it dies at roughly 6 to 8 ppt salinity. The **Thanneermukkom barrage** keeps southern Vembanad fresh in the dry season, so the weed now survives year-round instead of dying back each summer.
+- **Why it matters:** it blocks ferry and country-boat routes and jams outboard propellers. It strands fishing nets and cuts off light and oxygen for fish. Clearing it costs money, and the weed is usually dumped.
+- **Uses:** substrate pellets for oyster-mushroom growing (the MushPellets pilot), mycelium packaging, compost, biogas, and handicrafts and fibre.
+
+Figures here are approximate. See `public/places.json` → `assumptions.notes` for the numbers the app uses and their sources.
+
 ## What it does
 1. **Report by voice in Malayalam** from any phone (scan the QR on the big screen) → **Saaras v4** speech-to-text.
 2. **Sarvam-105B** extracts place, size and whether boats are blocked, and gives a faithful English line for officials.
