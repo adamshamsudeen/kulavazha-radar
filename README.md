@@ -37,6 +37,12 @@ All calls live in `backend/sarvam.py`.
 Quick start: `pip install -r requirements.txt`, then put `SARVAM_API_KEY` in `.env` and run `uvicorn backend.app:app --port 3000`.
 
 ## About kulavazha (water hyacinth)
+
+| | | |
+|---|---|---|
+| ![Kulavazha in flower at Ezhupunna, Alappuzha district](docs/images/kulavazha-ezhupunna.jpg) | ![A passenger ferry pushing through a canal carpeted with water hyacinth in Alappuzha](docs/images/ferry-alappuzha-hyacinth.jpg) | ![A boat stranded in a solid water hyacinth mat on Lake Victoria](docs/images/boats-lake-victoria-hyacinth.jpg) |
+| Kulavazha in flower, Ezhupunna (Alappuzha district). Photo: [Renjusplace](https://commons.wikimedia.org/wiki/File:Eichhornia_crassipes,_commonly_known_as_common_water_hyacinth._%E0%B4%95%E0%B5%81%E0%B4%B3%E0%B4%B5%E0%B4%BE%E0%B4%B4.jpg), CC BY-SA 4.0 | A ferry pushing through a hyacinth-choked canal in Alappuzha. Photo: [P.K. Niyogi](https://commons.wikimedia.org/wiki/File:Kerala-Backwaters_Alppuzha.JPG), public domain | The same weed elsewhere: a boat stranded in a solid mat on Lake Victoria, Kenya. Photo: [Mwe17](https://commons.wikimedia.org/wiki/File:Hyacinth_menace_Lake_Victoria.jpg), CC BY-SA 4.0 |
+
 - **What it is:** *Eichhornia crassipes* (now *Pontederia crassipes*), a free-floating plant from South America. In Kuttanad it's called **കുളവാഴ (kulavazha)** or **പോള / പോളപ്പായൽ (pola)**.
 - **"Terror of Bengal":** that's what it was called in the early 1900s, after it choked the rivers and canals of Bengal.
 - **Mostly water:** about 92% water. So 100 t of wet weed gives only about 8 t of dry matter, which is why this app counts wet tonnes and then converts.
