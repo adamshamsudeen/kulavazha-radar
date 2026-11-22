@@ -7,10 +7,10 @@ A data layer for turning a nuisance plant into paid harvest work and MushPellets
 
 **Live demo**
 - Render: https://kulavazha-radar.onrender.com (free tier, so the first visit can take about a minute to wake)
-- Laptop tunnel during HackaThoni 2026: https://par-millennium-also-missions.trycloudflare.com (temporary)
+- Laptop tunnel during HackaThoni 2026: https://enrollment-pray-urw-cincinnati.trycloudflare.com (temporary)
 - **📞 Call to report:** a Malayalam voice agent on **Sarvam Samvaad** ("Kulavazha Radar Call") asks where the kulavazha is, how big the mat is and whether boats are stuck, then calls `POST /api/phone-report`. That runs the same Sarvam-105B extraction and drops a 📞 pin with drift arrow and ferry warning on the radar. Today it runs from Samvaad's test agent (browser voice, or its Phone test, which dials your mobile); a rented inbound number needs Sarvam KYC, so there is no public number yet.
 - Phone reporting page: add `/report.html`. Houseboat Translator: add `/translator.html`.
-- Live lake camera (PayalCam, CP Plus at Punnamada): https://leo-tmp-numbers-fisheries.trycloudflare.com (temporary). Tap 🌿 Report hyacinth to send the view to the radar.
+- Live lake camera (PayalCam, CP Plus at Punnamada): https://mailman-surgeon-attraction-gloves.trycloudflare.com (temporary). Tap 🌿 Report hyacinth to send the view to the radar.
 
 **Why:** on 3 Sep 2026 the Muhamma–Kumarakom ferry was stranded mid-lake for hours after kulavazha jammed its propeller (Onmanorama reported it happens almost daily). Nobody tracks where the mats are or where they will drift, and the people who see them first, boatmen and fishers, speak Malayalam, not English forms.
 
@@ -87,7 +87,7 @@ Without a key the app runs in **Demo mode** with canned Malayalam reports.
 Expose the laptop with a tunnel, e.g. `cloudflared tunnel --url http://localhost:3000`, put the URL in `.env` as `PUBLIC_URL`, restart. The QR code then points phones at it.
 
 ## Camera
-A CP Plus camera points out of the houseboat window at Punnamada Lake. **Watch it live on PayalCam:** https://leo-tmp-numbers-fisheries.trycloudflare.com/ (shared controls and chat; temporary tunnel link).
+A CP Plus camera points out of the houseboat window at Punnamada Lake. **Watch it live on PayalCam:** https://mailman-surgeon-attraction-gloves.trycloudflare.com/ (shared controls and chat; temporary tunnel link).
 
 Hyacinth Watch reads the same feed and files reports on its own: it boxes the lake water, ignores the boat's own green, pauses at night or in glare, needs 3 frames in a row before reporting, and re-arms only after the mat drifts off. Each auto-report carries a snapshot with the hyacinth highlighted.
 
