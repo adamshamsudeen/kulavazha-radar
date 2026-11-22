@@ -584,7 +584,7 @@ function drawQR(base) {
 }
 $("#qrToggle")?.addEventListener("click", () => $("#qrBox").classList.toggle("min"));
 
-/* ---------------- Weed Watch camera ----------------
+/* ---------------- Hyacinth Watch camera ----------------
    Detection runs here, in the browser, on each frame from api/cam (or the laptop webcam with ?cam=webcam).
    - Only pixels inside the "lake area" box count (drag on the tile to redraw it).
    - "Ignore boat" learns the green that is in view now (boat roof, plants) and masks it out.
@@ -710,8 +710,8 @@ async function camReport(src, cover) {
   if (!CAM.reporter) return;
   const size = "small";                                  // a window camera sees a patch, not a lake-wide mat
   const p = PLACES.find((x) => x.id === CAM.place) || PLACES[0];
-  toast(`📹 Weed Watch camera: ${cover}% hyacinth cover near ${p.en}. Auto-reporting.`, true);
-  const item = { reporter: "Weed Watch camera", source: "camera",
+  toast(`📹 Hyacinth Watch camera: ${cover}% hyacinth cover near ${p.en}. Auto-reporting.`, true);
+  const item = { reporter: "Hyacinth Watch camera", source: "camera",
     transcript: `ക്യാമറ: ${p.ml} ഭാഗത്ത് ${SIZES[size].ml} കുളവാഴക്കൂട്ടം (${cover}% പച്ച)`,
     translation: `Camera: ${SIZES[size].en.toLowerCase()} hyacinth mat detected near ${p.en} (${cover}% of the lake in view).`,
     extraction: { place_id: p.id, size, blocking: false, area_m2: camArea("📹", cover) }, photo: thumb, green: cover, gps: CAM.fixed };

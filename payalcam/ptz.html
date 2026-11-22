@@ -319,7 +319,7 @@ dialog.pc img{display:block;width:100%;height:auto;border-radius:6px;box-shadow:
   </section>
   <div class="extras">
     <button class="btn" id="pcBtn" type="button" aria-keyshortcuts="P">📸 Postcard</button>
-    <button class="btn" id="rwBtn" type="button" title="Send this view to Kulavazha Radar as a water hyacinth report">🌿 Report weed</button>
+    <button class="btn" id="rwBtn" type="button" title="Send this view to Kulavazha Radar as a water hyacinth report">🌿 Report hyacinth</button>
     <span>Scroll, pinch or double-tap the video to peek closer. Only you see it.</span>
   </div>
   <div class="controls" id="controls">
@@ -1768,7 +1768,7 @@ pcDialog.addEventListener('close', () => { const u = pcUrl; pcUrl = null; if(u) 
 pcDialog.addEventListener('keydown', e => { if(e.key !== 'Escape') e.stopPropagation() });
 pcDialog.addEventListener('keyup', e => e.stopPropagation());
 pcBtn.onclick = postcard;
-// Report weed: the server grabs its own latest frame and files it with Kulavazha Radar.
+// Report hyacinth: the server grabs its own latest frame and files it with Kulavazha Radar.
 const rwBtn = $('rwBtn');
 let rwBusy = false;
 rwBtn.onclick = async () => {

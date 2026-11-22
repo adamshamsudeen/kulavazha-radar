@@ -2388,7 +2388,7 @@ def h_legacy_presence(handler, body):
     handler.send_json(named_viewers())
 
 
-# ---- Kulavazha Radar: "Report weed" from a viewer ----
+# ---- Kulavazha Radar: "Report hyacinth" from a viewer ----
 RADAR = CFG.get("radar") or {}
 REPORT_IP = {}                       # ip -> monotonic time of the last report
 REPORT_BUCKET = {"b": None}          # one shared bucket so a crowd can't flood the radar
@@ -2458,7 +2458,7 @@ def h_report_weed(handler, body):
     except Exception as e:  # radar down: say so, don't crash the cam
         log.warning("report-weed: radar unreachable: %s", type(e).__name__)
         return handler.send_err(502, "radar_down", "Kulavazha Radar isn't reachable right now.")
-    post_sys(f"🌿 {name} reported a weed mat to Kulavazha Radar")
+    post_sys(f"🌿 {name} reported a hyacinth mat (kulavazha) to Kulavazha Radar")
     handler.send_json({"ok": True, "seq": seq, "photo": bool(item["photo"])})
 
 

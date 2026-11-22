@@ -1,4 +1,4 @@
-"""Weed Watch camera grabber.
+"""Hyacinth Watch camera grabber.
 
 One background ffmpeg process keeps the latest JPEG frame in memory, so every
 browser polling /api/cam gets it instantly (no ffmpeg spawn per request).

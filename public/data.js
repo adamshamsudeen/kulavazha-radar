@@ -48,7 +48,7 @@ export const DEMO_REPORTS = [
     id: "demo3",
     reporter: "Babu, fisherman",
     transcript: "മുഹമ്മ ജെട്ടിക്ക് തെക്ക് ഭാഗത്ത് കായലിൽ വളരെ വലിയ പായൽ കൂട്ടം ഒഴുകി വരുന്നു, ഏകദേശം അര ഏക്കർ ഉണ്ടാകും.",
-    translation: "A very large weed mat is drifting in the lake south of Muhamma jetty, about half an acre.",
+    translation: "A very large hyacinth mat is drifting in the lake south of Muhamma jetty, about half an acre.",
     extraction: { place_id: "muhamma", size: "huge", blocking: false, area_m2: 2000 },
   },
   {

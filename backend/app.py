@@ -144,7 +144,7 @@ SLIP_SCHEMA = {
         "wet_weight_kg": {"type": "number", "description": "Total wet weight of water hyacinth (kulavazha / പായൽ) harvested, in kilograms. Convert tonnes to kg."},
         "date": {"type": "string", "description": "Date on the slip"},
         "crew": {"type": "string", "description": "Name of the harvesting group, crew or Kudumbashree unit"},
-        "location": {"type": "string", "description": "Place where the weed was harvested or landed"},
+        "location": {"type": "string", "description": "Place where the hyacinth was harvested or landed"},
         "vehicle_or_boat": {"type": "string", "description": "Boat or vehicle number, if present"},
     },
 }
@@ -183,7 +183,7 @@ async def brief(body: BriefIn):
         lines = "\n".join(
             f"- {r.get('place')}: {r.get('size')} mat, about {r.get('wet_t')} t wet, status {r.get('status')}"
             + (f", forecast to reach the {r['alert']} route" if r.get("alert") else "") for r in rs) or "(no reports)"
-        facts = f"Pilot target 100 t wet weed. Harvested so far: {done:.1f} t. Reported and waiting: {waiting:.1f} t."
+        facts = f"Pilot target 100 t wet hyacinth. Harvested so far: {done:.1f} t. Reported and waiting: {waiting:.1f} t."
         en = (await sarvam.chat([
             {"role": "system", "content": "You write a crisp situation brief (max 80 words, plain sentences, no markdown, no headings) "
              "for the Alappuzha District Collector and the Agriculture Minister's office about water hyacinth on Vembanad Lake. "
@@ -269,7 +269,7 @@ async def feed_post(item: dict):
 
 # 7b. Phone call report: a Sarvam Samvaad voice agent calls this tool mid-call -----------------
 class PhoneReportIn(BaseModel):
-    place: str | None = None        # where the weed is, as the caller said it (Malayalam or English)
+    place: str | None = None        # where the hyacinth is, as the caller said it (Malayalam or English)
     size: str | None = None         # how big, as the caller said it
     blocking: bool | str | None = None
     transcript: str | None = None   # optional: full call transcript so far
@@ -334,7 +334,7 @@ async def phone_report(body: PhoneReportIn, request: Request):
     }
 
 
-# 8. Weed Watch camera (CP Plus or any RTSP / snapshot URL; laptop only) ---------------------
+# 8. Hyacinth Watch camera (CP Plus or any RTSP / snapshot URL; laptop only) ---------------------
 @app.get("/api/cam")
 async def cam():
     if not camera.ensure_running():
