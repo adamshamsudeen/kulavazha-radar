@@ -8,6 +8,7 @@ A data layer for turning a nuisance plant into paid harvest work and MushPellets
 **Live demo**
 - Render: https://kulavazha-radar.onrender.com (free tier, so the first visit can take about a minute to wake)
 - Laptop tunnel during HackaThoni 2026: https://par-millennium-also-missions.trycloudflare.com (temporary)
+- **📞 Call to report:** a Malayalam voice agent on **Sarvam Samvaad** ("Kulavazha Radar Call") asks where the kulavazha is, how big the mat is and whether boats are stuck, then calls `POST /api/phone-report`. That runs the same Sarvam-105B extraction and drops a 📞 pin with drift arrow and ferry warning on the radar. Today it runs from Samvaad's test agent (browser voice, or its Phone test, which dials your mobile); a rented inbound number needs Sarvam KYC, so there is no public number yet.
 - Phone reporting page: add `/report.html`. Houseboat Translator: add `/translator.html`.
 - Live lake camera (PayalCam, CP Plus at Punnamada): https://leo-tmp-numbers-fisheries.trycloudflare.com (temporary). Tap 🌿 Report hyacinth to send the view to the radar.
 
@@ -23,6 +24,7 @@ Five Sarvam models in one loop. Malayalam in, Malayalam out; English only where 
 | **Saaras v4** (`saaras:v4`) | Malayalam / Manglish voice report → text; also the guest side of the Houseboat Translator | `sarvam.speech_to_text` → `/api/report`, `/api/converse` |
 | **Sarvam-105B** (`sarvam-105b`) | Pulls place, mat size and "boats blocked" out of free speech as JSON, plus an English line; writes the officials' brief | `backend/extract.py`, `/api/brief` |
 | **Sarvam-Translate** (`sarvam-translate:v1`) | Brief → Malayalam; guest ↔ crew translation; fallback English line | `sarvam.translate` → `/api/brief`, `/api/converse`, `/api/translate` |
+| **Samvaad Voice Agents** | Phone-call reporting in Malayalam; the agent's `report_kulavazha` tool posts place, size and "boats blocked" to the radar | `/api/phone-report` |
 | **Bulbul v3** (`bulbul:v3`) | Malayalam thank-you to the reporter, ferry warnings, brief read aloud | `sarvam.text_to_speech` → `/api/tts` |
 | **Sarvam Vision** | Reads a handwritten weighbridge / harvest slip into crew, date and kg | `sarvam.vision_extract` → `/api/slip` |
 
