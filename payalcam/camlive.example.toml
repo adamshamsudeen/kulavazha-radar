@@ -1,0 +1,65 @@
+# camlive settings: copy to camlive.toml, fill in [camera], then chmod 600 camlive.toml.
+# Note: in camera mode the RTSP URL (camera user, password and path) is on ffmpeg's command line,
+# which any local account can read with `ps`. Keep this Mac single-user, and use camera credentials
+# that are used nowhere else.
+
+[camera]
+ip = "192.168.x.x"                  # camera address (give it a DHCP reservation)
+onvif_port = 8000
+rtsp_port = 5543
+rtsp_path = "<secret path>/live/channel0"
+user = "admin"
+password = "<camera password>"     # owner should change it to 16-20 random alphanumerics
+
+[server]
+port = 8765                          # env CAMLIVE_PORT overrides
+bind = "127.0.0.1"
+source = "camera"                    # camera | test (lavfi testsrc2 2304x1296@15); env CAMLIVE_SOURCE
+ptz = "onvif"                        # onvif | fake (fake_ptz.py); env CAMLIVE_PTZ
+hls_dir = "~/Library/Caches/camlive/hls-{port}"
+data_dir = "~/Library/Application Support/camlive/{port}"   # chat.json, stats.json, moderation.json, secret.key, ffmpeg.pid
+log_file = "~/Library/Logs/camlive/camlive.log"
+
+[stream]
+width = 1280
+height = 720
+fps = 15
+crf = 23
+maxrate = "1500k"
+bufsize = "3000k"
+zoom_levels = [1, 1.5, 2, 3, 4]
+zoom_live = false                    # flip to true only after the dev-instance runtime-crop test passes
+zoom_min_interval_s = 15             # restart mode only; live mode uses 1.5
+stall_seconds = 10
+first_segment_grace_s = 20
+
+[room]
+name = "PayalCam"
+tagline = "Live view of Punnamada Lake, keeping an eye on the water hyacinth (kulavazha). Take the wheel and look around!"
+place = "Punnamada Lake, Alappuzha"                           # free text shown in the HUD and on postcards, e.g. a city name; never an address
+owner_name = "Owner"                 # display name on the owner's messages; reserved for everyone else
+owner_key = ""                       # empty = remote owner powers off (local owner always works); else 20+ random chars
+reactions = ["😍", "🌅", "😂", "🐦", "🔥", "👋"]
+turn_s = 45
+idle_s = 20
+ready_s = 10
+grace_s = 20
+max_queue = 30
+queue_per_ip = 2
+viewer_timeout_s = 15
+chat_keep = 200
+
+[alerts]
+ntfy_server = "https://ntfy.sh"
+ntfy_topic = ""                      # empty = alerts off; use a long random topic
+
+[tunnel]
+metrics_url = "http://127.0.0.1:20241/quicktunnel"
+
+[radar]
+# Kulavazha Radar: where viewers' "Report weed" goes (empty = off)
+feed_url = "http://127.0.0.1:3000/api/feed"
+place_id = "punnamada"
+per_ip_s = 60                        # one report per viewer a minute
+burst = 5                            # and at most 5 a minute from everyone together
+every_s = 60

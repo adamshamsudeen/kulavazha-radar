@@ -75,7 +75,25 @@ Without a key the app runs in **Demo mode** with canned Malayalam reports.
 Expose the laptop with a tunnel, e.g. `cloudflared tunnel --url http://localhost:3000`, put the URL in `.env` as `PUBLIC_URL`, restart. The QR code then points phones at it.
 
 ## Camera
-Set `CAM_URL` (e.g. `rtsp://admin:PASS@192.168.1.64:554/cam/realmonitor?channel=1&subtype=1`) and `CAM_PLACE`. Needs `ffmpeg`.
+A CP Plus camera points out of the houseboat window at Punnamada Lake. **Watch it live on PayalCam:** https://leo-tmp-numbers-fisheries.trycloudflare.com/ (shared controls and chat; temporary tunnel link).
+
+Weed Watch reads the same feed and files reports on its own: it boxes the lake water, ignores the boat's own green, pauses at night or in glare, needs 3 frames in a row before reporting, and re-arms only after the mat drifts off. Each auto-report carries a snapshot with the weed highlighted.
+
+Set `CAM_URL` in `.env` (re-read live, needs `ffmpeg`), plus `CAM_PLACE` and optionally `CAM_LAT`/`CAM_LNG`:
+- PayalCam's restream: `http://127.0.0.1:8765/hls/live.m3u8`
+- Direct RTSP: `rtsp://admin:PASS@IP:554/cam/realmonitor?channel=1&subtype=1`
+- Rehearsal: a video file path, or open the page with `?cam=webcam`.
+
+### PayalCam (code in `payalcam/`)
+PayalCam restreams the CP Plus camera as a public live page: low-latency HLS video, shared pan/tilt/zoom with turn-taking, chat and a viewer count. Weed Watch reads its local HLS stream.
+
+- `ptz_server.py`: the server (video, ONVIF camera controls, chat, viewers)
+- `ptz.html`: the page viewers see
+- `camlivectl`: start, stop, restart and auto-start (launchd files in `deploy/`); replace `YOUR_USER` in `deploy/*.plist` before `./camlivectl install`
+- **🌿 Report weed** (next to 📸 Postcard): any viewer can send the current view to Kulavazha Radar. The PayalCam server grabs its own latest frame and posts it to the radar feed (`[radar] feed_url`, default `http://127.0.0.1:3000/api/feed`), limited to one report per viewer a minute.
+- `tests/`: `cd payalcam && python3 -m unittest discover -s tests -t .` (116 tests)
+
+Copy `camlive.example.toml` to `camlive.toml` and fill in the camera address and password. `camlive.toml` is git-ignored: never commit it.
 
 ## Offline demo audio
 `python -m tools.bake_audio` writes Bulbul voice files into `public/audio/` so demo mode speaks with real Sarvam voices without network.

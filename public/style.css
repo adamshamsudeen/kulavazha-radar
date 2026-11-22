@@ -202,3 +202,5 @@ dialog td:last-child { text-align: right; font-weight: 600; }
 .sound-gate { position: fixed; left: 50%; top: 84px; transform: translateX(-50%); z-index: 2000; padding: 14px 22px; border-radius: 999px; border: 0; background: #39d98a; color: #032; font: 600 18px/1.2 Inter, system-ui, sans-serif; box-shadow: 0 8px 30px rgba(0,0,0,.45); cursor: pointer; animation: gatePulse 1.6s ease-in-out infinite; }
 .sound-gate .ml { display: block; color: #032; opacity: .85; font-size: 13px; font-weight: 400; margin-top: 2px; }
 @keyframes gatePulse { 50% { box-shadow: 0 0 0 10px rgba(57,217,138,.25), 0 8px 30px rgba(0,0,0,.45); } }
+
+.tab.live-tab { color: #ff8a80; }

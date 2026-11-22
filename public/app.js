@@ -149,7 +149,7 @@ async function submitReport({ audio, mime, text, demo, remote }) {
       step("llm", "done", remote.timings?.llm_ms ? `${remote.timings.llm_ms} ms` : "phone");
       step("tr", remote.translation ? "done" : "skip", remote.translation ? "via 105B" : "");
       transcript = remote.transcript; translation = remote.translation; ext = remote.extraction || {};
-      reporter = remote.source === "camera" ? `📹 ${remote.reporter}` : `📱 ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
+      reporter = `${{ camera: "📹", payalcam: "🌿" }[remote.source] || "📱"} ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
       if (remote.photo) pendingPhoto = { thumb: remote.photo, green: remote.green };
     } else if (state.mode === "demo" || demo) {
       const d = demo || DEMO_REPORTS[state.demoIdx++ % DEMO_REPORTS.length];
@@ -549,7 +549,7 @@ async function pollFeed() {
   if (!feedBusy && feedQueue.length) {
     feedBusy = true;
     const it = feedQueue.shift();
-    toast(it.source === "camera" ? `📹 ${it.reporter} auto-report` : `📱 New report from ${it.reporter}`);
+    toast(it.source === "camera" ? `📹 ${it.reporter} auto-report` : it.source === "payalcam" ? `🌿 ${it.reporter} reported from the live cam` : `📱 New report from ${it.reporter}`);
     await submitReport({ remote: it });
     feedBusy = false;
   }

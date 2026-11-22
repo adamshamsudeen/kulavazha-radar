@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{NAME}} · Live</title>
+<meta name="description" content="{{TAGLINE}}">
+<meta property="og:title" content="{{NAME}} · live">
+<meta property="og:description" content="{{TAGLINE}}">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#111">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6.5' fill='%23e5484d'/%3E%3C/svg%3E">
+<style>
+/* ===== Design tokens (every colour lives here) ===== */
+:root{
+  --bg:#f4f4f2;--fg:#1d1d1b;--muted:#6b6b66;--btn:#fff;--line:#d6d6d0;--accent:#2f6fde;--on-accent:#fff;
+  --panel:#fff;--mine:#e6eefc;--video-bg:#000;
+  --live:#e5484d;--on-live:#fff;--live-glow:rgba(229,72,77,.2);
+  --amber:#f5a524;--on-amber:#1d1d1b;
+  --overlay-bg:rgba(0,0,0,.58);--overlay-fg:#fff;--overlay-shadow:rgba(0,0,0,.6);
+  --toast-bg:#1d1d1b;--toast-fg:#fff;--toast-link:#9cc0ff;--shadow:rgba(0,0,0,.18);
+  --ring-track:rgba(127,127,127,.25);
+  --overlay-strong:rgba(0,0,0,.75);--flash:#fff;--backdrop:rgba(0,0,0,.55);
+  --owner:#9a6b00;--owner-bg:#fff4d6;--owner-line:#ecd28c;--danger:#c4363b;--chip-bg:#fff;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#161616;--fg:#eee;--muted:#9a9a94;--btn:#262626;--line:#3a3a3a;--accent:#6b9cff;--on-accent:#0b1220;
+  --panel:#1f1f1f;--mine:#22304a;--toast-bg:#f1f1ee;--toast-fg:#161616;--toast-link:#2f6fde;--shadow:rgba(0,0,0,.5);
+  --owner:#f5c451;--owner-bg:#2e2614;--owner-line:#5a4a1f;--danger:#ff6b70;--chip-bg:#1f1f1f;
+  color-scheme:dark;
+}}
+:root[data-theme=dark]{
+  --bg:#161616;--fg:#eee;--muted:#9a9a94;--btn:#262626;--line:#3a3a3a;--accent:#6b9cff;--on-accent:#0b1220;
+  --panel:#1f1f1f;--mine:#22304a;--toast-bg:#f1f1ee;--toast-fg:#161616;--toast-link:#2f6fde;--shadow:rgba(0,0,0,.5);
+  --owner:#f5c451;--owner-bg:#2e2614;--owner-line:#5a4a1f;--danger:#ff6b70;--chip-bg:#1f1f1f;
+  color-scheme:dark;
+}
+
+/* ===== Base ===== */
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,sans-serif;padding:16px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+button{font:inherit;color:inherit}
+.btn{padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg);cursor:pointer}
+.link{background:none;border:none;padding:4px 2px;color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* ===== Layout ===== */
+.layout{display:flex;gap:16px;max-width:1340px;margin:0 auto;align-items:flex-start}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:14px}
+.stage{width:100%;max-width:960px;display:flex;flex-direction:column;gap:10px}
+
+/* ===== Player and overlays ===== */
+.player{position:relative;width:100%;overflow:hidden;border-radius:10px;background:var(--video-bg)}
+video{display:block;width:100%;background:var(--video-bg);aspect-ratio:16/9;object-fit:contain;transition:opacity .4s}
+.player.dim video{opacity:.4}
+#liveBadge{position:absolute;top:10px;left:10px;z-index:3;display:flex;align-items:center;gap:6px;border:none;border-radius:999px;
+  padding:5px 10px;font-size:12px;font-weight:700;letter-spacing:.02em;background:var(--live);color:var(--on-live);cursor:default}
+#liveBadge.behind{background:var(--amber);color:var(--on-amber);cursor:pointer}
+#liveBadge .ldot{width:7px;height:7px;border-radius:50%;background:var(--on-live);animation:pulse 1.6s ease-in-out infinite}
+#liveBadge.behind .ldot{display:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.pill{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:3;max-width:calc(100% - 20px);text-align:center;
+  background:var(--overlay-bg);color:var(--overlay-fg);border-radius:999px;padding:6px 12px;font-size:13px}
+#statusCard{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:16px}
+#statusCard.empty{display:none}
+#statusCard.tap{pointer-events:auto;cursor:pointer}
+#statusCard .card{background:var(--overlay-bg);color:var(--overlay-fg);border-radius:10px;padding:10px 14px;font-size:14px;text-align:center;max-width:90%;
+  text-shadow:0 1px 2px var(--overlay-shadow)}
+#hud{position:absolute;left:10px;bottom:10px;z-index:3;background:var(--overlay-bg);color:var(--overlay-fg);border-radius:6px;padding:4px 8px;
+  font-size:12px;font-variant-numeric:tabular-nums;max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player.narrow #hudPlace{display:none}
+
+/* ===== Wheel card ===== */
+.wheel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;font-size:14px}
+.wheel-main{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:3px}
+#wheelText{font-weight:600;font-variant-numeric:tabular-nums}
+#wheelSub{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+#wheelSub.warn{color:var(--amber);font-weight:600}
+.wheel-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.claim{width:100%;font-size:17px;font-weight:700;padding:12px 16px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent);cursor:pointer;
+  animation:claimPulse 1.1s ease-in-out infinite}
+@keyframes claimPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+
+/* ===== Controls ===== */
+.controls{display:flex;gap:28px;flex-wrap:wrap;justify-content:center;align-items:center}
+.pad{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:6px}
+.pad button,.zoom button{font-size:22px;border:1px solid var(--line);background:var(--btn);color:var(--fg);border-radius:10px;cursor:pointer;user-select:none;
+  -webkit-user-select:none;touch-action:pan-y;-webkit-touch-callout:none;padding:0}
+.pad button.on,.zoom button.on,.pad button:active{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.stopcell{position:relative;display:grid}
+.stopcell button{width:100%;height:100%}
+.ring{position:absolute;inset:-5px;width:calc(100% + 10px);height:calc(100% + 10px);pointer-events:none;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:4}
+.ring .track{stroke:var(--ring-track)}
+.ring .bar{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .5s linear,stroke .3s}
+.ring.amber .bar{stroke:var(--amber)}
+.zoom{display:grid;grid-template-rows:64px auto 64px;gap:6px;width:76px}
+#zoomLevel{font-size:13px;font-weight:600;padding:6px 2px;line-height:1.2}
+.zoom button:disabled{opacity:.4;cursor:default}
+.controls.dim .pad button,.controls.dim .zoom{opacity:.45}
+.speed{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.speed output{color:var(--muted);font-variant-numeric:tabular-nums}
+#hint{font-size:13px;color:var(--muted);margin:0;text-align:center}
+
+/* ===== Chat and viewers ===== */
+.chat{width:340px;flex-shrink:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;height:calc(100vh - 32px);position:sticky;top:16px}
+.chat h2{font-size:15px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.chat h2 button{font-size:12px;font-weight:400;background:none;border:none;color:var(--accent);cursor:pointer;padding:0}
+.viewers{border-bottom:1px solid var(--line);font-size:13px}
+.viewers summary{padding:10px 14px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:8px;list-style:none}
+.viewers summary::-webkit-details-marker{display:none}
+.viewers summary::after{content:'▾';margin-left:auto;color:var(--muted);font-weight:400}
+.viewers:not([open]) summary::after{content:'▸'}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px var(--live-glow)}
+#viewerList{list-style:none;margin:0;padding:0 14px 10px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+#viewerList li{display:flex;gap:8px;align-items:center;min-width:0}
+#viewerList .flag{width:20px;text-align:center;flex-shrink:0}
+#viewerList .vname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#viewerList .where{color:var(--muted);margin-left:auto;text-align:right;white-space:nowrap}
+#viewerList .more{color:var(--muted)}
+#log{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+#log>*{flex-shrink:0}   /* .m has overflow:hidden, so without this the column squashes messages */
+.m{padding:7px 10px;border-radius:8px;background:var(--bg);overflow-wrap:anywhere;overflow:hidden}
+.m.mine{background:var(--mine)}
+.m .who{font-weight:600;font-size:13px}
+.m .when{font-size:11px;color:var(--muted);margin-left:6px}
+.m .txt{margin-top:2px;white-space:pre-wrap;max-height:10em;overflow:hidden}
+.m.sys{background:none;padding:2px 6px;text-align:center;color:var(--muted);font-size:12px}
+.empty{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
+.chat form{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}
+.chat form input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--btn);color:var(--fg)}
+.chat form button{padding:8px 12px;border:none;border-radius:8px;background:var(--accent);color:var(--on-accent);cursor:pointer;font-variant-numeric:tabular-nums}
+.chat form button:disabled{opacity:.6;cursor:default}
+.chat form button.link{background:none;color:var(--accent);padding:8px 4px}
+#nameForm p{margin:0 0 6px;font-size:13px;color:var(--muted)}
+#nameForm{flex-direction:column}
+#nameForm div{display:flex;gap:6px}
+
+/* ===== Toasts ===== */
+#toasts{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:50;display:flex;flex-direction:column;gap:6px;align-items:center;
+  width:min(440px,calc(100% - 32px));pointer-events:none}
+.toast{pointer-events:auto;background:var(--toast-bg);color:var(--toast-fg);border-radius:10px;padding:10px 14px;font-size:14px;box-shadow:0 4px 16px var(--shadow);
+  display:flex;gap:12px;align-items:center}
+.toast button{background:none;border:none;color:var(--toast-link);font-weight:700;cursor:pointer;padding:0;white-space:nowrap}
+
+/* ===== Room header ===== */
+.room{width:100%;max-width:960px;display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
+.room-id{min-width:0;flex:1 1 260px}
+.room h1{font-size:22px;font-weight:800;margin:0;line-height:1.15;letter-spacing:-.01em}
+.room .tagline{margin:3px 0 0;color:var(--muted);font-size:14px}
+.room-side{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:var(--chip-bg);border:1px solid var(--line);
+  font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip .cdot{color:var(--live);font-size:11px}
+
+/* ===== Reactions ===== */
+.player{--bar-h:0px}
+.player.compact{--bar-h:52px}
+#reactBar{position:absolute;right:10px;bottom:10px;z-index:4;display:flex;gap:6px}
+.player.compact #reactBar{position:relative;right:auto;bottom:auto;justify-content:space-evenly;height:var(--bar-h);align-items:center;padding:0 6px;background:var(--video-bg)}
+.rx{position:relative;width:40px;height:40px;border-radius:50%;border:none;background:var(--overlay-bg);font-size:21px;line-height:1;cursor:pointer;
+  display:grid;place-items:center;padding:0;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .12s,background .12s}
+.rx:hover{background:var(--overlay-strong)}
+.rx:active{transform:scale(.86)}
+.rx .cnt{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:9px;padding:0 4px;background:var(--live);color:var(--on-live);
+  font-size:11px;font-weight:700;display:grid;place-items:center;opacity:0;transform:scale(.6);transition:opacity .2s,transform .2s;pointer-events:none}
+.rx .cnt.on{opacity:1;transform:scale(1)}
+#fx{position:absolute;left:0;right:0;top:0;bottom:var(--bar-h);pointer-events:none;overflow:hidden;z-index:3}
+.fl{position:absolute;bottom:8%;font-size:30px;line-height:1;animation:rise 2.6s cubic-bezier(.25,.6,.45,1) forwards;will-change:transform,opacity;
+  text-shadow:0 2px 6px var(--overlay-shadow)}
+.fl>span{display:inline-block;animation:wob var(--wd,1.1s) ease-in-out infinite alternate}
+@keyframes rise{0%{transform:translateY(0) scale(.8);opacity:1}100%{transform:translateY(var(--rise,-200px)) scale(1.3);opacity:0}}
+@keyframes wob{from{transform:translateX(-12px)}to{transform:translateX(12px)}}
+.combo{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);display:flex;align-items:baseline;gap:4px;font-size:88px;line-height:1;
+  animation:pop 1.2s ease-out forwards;text-shadow:0 4px 18px var(--overlay-shadow)}
+.combo b{font-size:34px;color:var(--overlay-fg);font-weight:800}
+@keyframes pop{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}18%{transform:translate(-50%,-50%) scale(1.15);opacity:1}
+  35%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.05);opacity:0}}
+.combo.still{animation:fade 1.2s ease-out forwards}
+@keyframes fade{0%,80%{opacity:1}100%{opacity:0}}
+
+/* ===== Peek (private zoom) and Postcard ===== */
+video{transform-origin:0 0;touch-action:pan-y}
+.player.peeking video{touch-action:none;cursor:grab}
+.player.peeking.dragging video{cursor:grabbing}
+video.peek-anim{transition:opacity .4s,transform .25s ease-out}
+#peekPill{position:absolute;top:10px;right:10px;z-index:4;border:none;border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer;
+  background:var(--overlay-bg);color:var(--overlay-fg);font-variant-numeric:tabular-nums}
+#peekPill:hover{background:var(--overlay-strong)}
+#peekPill u{text-underline-offset:2px}
+#statusCard{bottom:var(--bar-h)}
+#hud{bottom:calc(10px + var(--bar-h));max-width:calc(100% - 320px)}
+.player.compact #hud{max-width:calc(100% - 20px)}
+#flash{position:absolute;inset:0;z-index:6;background:var(--flash);opacity:0;pointer-events:none}
+#flash.go{animation:flash .15s ease-out}
+@keyframes flash{0%{opacity:.9}100%{opacity:0}}
+.extras{display:flex;gap:6px 14px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:13px;color:var(--muted);text-align:center}
+.extras .btn{font-weight:600}
+kbd{font:600 11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--fg)}
+dialog.pc{border:none;border-radius:14px;padding:16px;background:var(--panel);color:var(--fg);width:min(760px,calc(100% - 24px));max-height:calc(100% - 24px);
+  box-shadow:0 12px 40px var(--shadow)}
+dialog.pc::backdrop{background:var(--backdrop)}
+dialog.pc h2{margin:0 0 10px;font-size:17px}
+dialog.pc img{display:block;width:100%;height:auto;border-radius:6px;box-shadow:0 2px 12px var(--shadow)}
+.pc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+
+/* ===== Owner strip and moderation ===== */
+.owner-strip{width:100%;max-width:960px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;border-radius:10px;
+  background:var(--owner-bg);border:1px solid var(--owner-line);font-size:13px}
+.owner-strip .ob{font-weight:700;color:var(--owner);margin-right:4px}
+.owner-strip .btn{padding:5px 10px;font-size:13px}
+.owner-strip .btn:disabled{opacity:.45;cursor:default}
+.owner-strip label{display:flex;gap:6px;align-items:center;margin-left:auto}
+.owner-strip select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--btn);color:var(--fg)}
+.m .tag,.you-are .tag,#viewerList .tag{font-size:11px;color:var(--muted);margin-left:5px;letter-spacing:.02em;white-space:nowrap}
+.crown{margin-left:4px}
+.m.owner{box-shadow:inset 3px 0 0 var(--owner)}
+.mod{float:right;display:flex;gap:2px;align-items:center;margin:-3px -5px 0 6px}
+.mod button{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 5px;border-radius:5px;font-size:13px}
+.mod button:hover{background:var(--line);color:var(--fg)}
+.mod .tog{opacity:.55}
+.m:hover .mod .tog,.mod .tog:focus-visible,.mod .tog[aria-expanded=true]{opacity:1}
+.mod .del{color:var(--danger)}
+.mod-menu{display:inline-flex;gap:2px}
+#viewerList .vmute{margin-left:4px;background:none;border:none;cursor:pointer;padding:0 3px;border-radius:4px;font-size:13px;color:var(--muted)}
+#viewerList .vmute:hover{background:var(--line)}
+#viewerList .vmenu{display:flex;gap:4px;margin-left:4px}
+#viewerList .vmenu button{font-size:11px;padding:1px 6px;border:1px solid var(--line);border-radius:5px;background:var(--btn);color:var(--fg);cursor:pointer}
+#viewerList li.me .vname{font-weight:600}
+.viewers summary{flex-wrap:wrap}
+.viewers summary::after{order:2}
+#flagStrip{order:3;flex-basis:100%;font-weight:400;color:var(--muted);font-size:12px;line-height:1.5}
+#flagStrip .fs{font-size:15px;letter-spacing:1px;color:var(--fg)}
+#flagStrip .fs span{display:inline-block}
+#flagStrip .fs span.new{animation:flagIn .9s ease-out}
+@keyframes flagIn{0%{transform:scale(.2) rotate(-20deg)}60%{transform:scale(1.5) rotate(8deg)}100%{transform:none}}
+.chat h2 .slow{font-size:12px;font-weight:500;color:var(--muted)}
+.you-are{padding:8px 12px 0;font-size:13px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.you-are b{color:var(--fg)}
+.you-are.bad b{color:var(--danger);text-decoration:line-through}
+.you-are .link{font-size:13px;padding:0 2px}
+.chat-foot form{border-top:none;padding-top:8px}
+.chat-foot{border-top:1px solid var(--line)}
+.chat form input:disabled{opacity:.6}
+
+/* ===== Phones: sticky player, edge-to-edge video ===== */
+@media (max-width:900px){
+  body{padding:0}
+  .layout{flex-direction:column;align-items:stretch;gap:12px;padding-bottom:16px}
+  .main{display:contents}
+  .stage{background:var(--bg);max-width:none;gap:0;padding-bottom:8px}
+  .player{border-radius:0}
+  .wheel{margin:8px 12px 0}
+  .controls,#hint,.extras{margin-inline:12px}
+  .room{padding:12px 12px 2px}
+  .room h1{font-size:19px}
+  .room .tagline{font-size:13px}
+  .owner-strip{width:auto;margin:0 12px}
+  .chat{width:auto;margin-inline:12px;height:420px;position:static}
+  .chat form input{font-size:16px}   /* iOS zooms the page into inputs under 16px */
+}
+/* The player stays on screen while you scroll to the controls, but only when it leaves room for them */
+@media (max-width:900px) and (orientation:portrait) and (min-height:560px){
+  .stage{position:sticky;top:0;z-index:5}
+}
+@media (max-width:900px) and (orientation:landscape){
+  video{max-height:85vh}
+}
+@media (prefers-reduced-motion:reduce){
+  #liveBadge .ldot,.claim,#flagStrip .fs span.new,#flash.go{animation:none}
+  video,video.peek-anim,.ring .bar,.rx,.rx .cnt{transition:none}
+}
+</style></head><body>
+<div class="layout">
+<main class="main">
+  <header class="room">
+    <div class="room-id">
+      <h1 id="roomName">{{NAME}}</h1>
+      <p class="tagline" id="roomTagline">{{TAGLINE}}</p>
+    </div>
+    <div class="room-side">
+      <span class="chip" id="roomChip" hidden><span class="cdot" aria-hidden="true">●</span><span id="chipText"></span></span>
+      <button class="btn" id="shareBtn" type="button" aria-label="Share a link to this camera">🔗 Share</button>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <div class="player" id="player">
+      <video id="video" muted autoplay playsinline aria-label="Live camera view. Scroll, pinch or double-tap to zoom your own view."></video>
+      <div id="fx" aria-hidden="true"></div>
+      <div id="flash" aria-hidden="true"></div>
+      <button id="peekPill" type="button" title="Only you see this" hidden></button>
+      <button id="liveBadge" type="button" hidden><span class="ldot" aria-hidden="true"></span><span id="liveText">LIVE</span></button>
+      <div id="zoomPill" class="pill" hidden></div>
+      <div id="statusCard" role="status"><div class="card"><span id="statusText">Connecting…</span><span id="statusExtra" aria-hidden="true"></span></div></div>
+      <div id="hud" hidden><span id="hudTime"></span><span id="hudPlace"></span></div>
+      <div id="reactBar" role="group" aria-label="Send a reaction everyone sees"></div>
+    </div>
+    <section id="wheel" class="wheel" aria-label="Who's driving">
+      <div class="wheel-main">
+        <span id="wheelText">Connecting…</span>
+        <button id="claimBtn" class="claim" type="button" hidden></button>
+        <span id="wheelSub" hidden></span>
+      </div>
+      <div class="wheel-actions">
+        <button id="joinBtn" class="btn" type="button" hidden>Get in line</button>
+        <button id="leaveLineBtn" class="link" type="button" hidden>Leave line</button>
+        <button id="passBtn" class="link" type="button" hidden>Pass the wheel</button>
+      </div>
+      <div id="wheelAnnounce" class="sr-only" aria-live="assertive"></div>
+    </section>
+  </div>
+  <section id="ownerStrip" class="owner-strip" aria-label="Owner controls" hidden>
+    <span class="ob">👑 Owner</span>
+    <button class="btn" id="oTake" type="button">Take the wheel</button>
+    <button class="btn" id="oKick" type="button">End turn</button>
+    <button class="btn" id="oLock" type="button" aria-pressed="false">Lock controls</button>
+    <label>Slow mode <select id="oSlow"><option value="0">off</option><option value="5">5 s</option><option value="15">15 s</option><option value="30">30 s</option></select></label>
+  </section>
+  <div class="extras">
+    <button class="btn" id="pcBtn" type="button" aria-keyshortcuts="P">📸 Postcard</button>
+    <button class="btn" id="rwBtn" type="button" title="Send this view to Kulavazha Radar as a water hyacinth report">🌿 Report weed</button>
+    <span>Scroll, pinch or double-tap the video to peek closer. Only you see it.</span>
+  </div>
+  <div class="controls" id="controls">
+    <div class="pad" role="group" aria-label="Move camera">
+      <span></span><button type="button" data-dir="up" aria-label="Tilt up"><span aria-hidden="true">▲</span></button><span></span>
+      <button type="button" data-dir="left" aria-label="Pan left"><span aria-hidden="true">◀</span></button>
+      <div class="stopcell">
+        <svg class="ring" id="ring" viewBox="0 0 74 74" aria-hidden="true" hidden><circle class="track" cx="37" cy="37" r="34"/><circle class="bar" id="ringBar" cx="37" cy="37" r="34"/></svg>
+        <button type="button" id="stop" aria-label="Stop moving"><span aria-hidden="true">■</span></button>
+      </div>
+      <button type="button" data-dir="right" aria-label="Pan right"><span aria-hidden="true">▶</span></button>
+      <span></span><button type="button" data-dir="down" aria-label="Tilt down"><span aria-hidden="true">▼</span></button><span></span>
+    </div>
+    <div class="zoom" role="group" aria-label="Camera zoom (driver)">
+      <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+      <button type="button" id="zoomLevel" title="Reset zoom to 1×">1×</button>
+      <button type="button" id="zoomOut" aria-label="Zoom out">-</button>
+    </div>
+    <label class="speed">Speed <input id="speed" type="range" min="0.1" max="1" step="0.1" value="0.5"><output id="speedOut" for="speed">50%</output></label>
+  </div>
+  <p id="hint">Tap an arrow for a small step, hold it to keep moving. Arrow keys or WASD work too (hold Shift for full speed).</p>
+</main>
+
+<aside class="chat" aria-label="Chat">
+  <details class="viewers" open>
+    <summary><span class="dot" aria-hidden="true"></span><span id="viewerCount">0 watching</span><span id="flagStrip" hidden></span></summary>
+    <ul id="viewerList"></ul>
+  </details>
+  <h2><span>Chat</span><span class="slow" id="slowNote" hidden></span></h2>
+  <div id="log" role="log" aria-live="polite"><div class="empty">No messages yet.</div></div>
+  <div class="chat-foot">
+    <div class="you-are" id="youAre">You're <b id="youName"></b><span class="tag" id="youTag"></span><span id="renameWrap"> · <button class="link" id="rename" type="button">change</button></span></div>
+    <form id="nameForm" hidden>
+      <p id="nameMsg">Pick a name for the chat (2–24 characters).</p>
+      <div><label class="sr-only" for="nameIn">Your name</label><input id="nameIn" maxlength="24" placeholder="Your name" autocomplete="nickname"><button>Save</button><button class="link" id="nameCancel" type="button">Cancel</button></div>
+    </form>
+    <form id="sendForm">
+      <label class="sr-only" for="textIn">Message</label>
+      <input id="textIn" maxlength="300" placeholder="Message" autocomplete="off"><button id="sendBtn">Send</button>
+    </form>
+  </div>
+</aside>
+</div>
+<div id="toasts" aria-live="polite"></div>
+<dialog class="pc" id="pcDialog" aria-labelledby="pcTitle">
+  <h2 id="pcTitle">📸 Your postcard</h2>
+  <img id="pcImg" alt="">
+  <div class="pc-actions">
+    <button class="btn" id="pcClose" type="button">Close</button>
+    <button class="btn" id="pcShare" type="button" hidden>Share</button>
+    <button class="btn primary" id="pcDownload" type="button">Download</button>
+  </div>
+</dialog>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js" integrity="sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni" crossorigin="anonymous"></script>
+<script>
+'use strict';
+/*
+ * camlive page. Talks only to the v2 HTTP API (POST /state, /move, /stop, /zoom, /seat/*, /chat,
+ * /presence/leave; GET /hls/*).
+ *
+ * Internal API for later page code (window.Cam):
+ *   Cam.onState(fn)        fn(state) after every successful POST /state (core UI already updated)
+ *   Cam.post(path, body, {quiet, timeout}) -> {ok, status, data}; sends X-Client and X-Owner-Key,
+ *                          toasts data.message on errors unless quiet
+ *   Cam.refresh()          poll /state now
+ *   Cam.state              latest /state response (or null)
+ *   Cam.toast(text, {ms, action:{label, fn}})
+ *   Cam.hooks.msg(el, m)   decorate a rendered chat message element (tags, owner menus)
+ *   Cam.hooks.viewerRow(li, v)  decorate a viewer row
+ *   Cam.baseTitle()        title used when not flashing "Your turn!" (override for a dynamic title)
+ *   Cam.name / Cam.setName(n), Cam.isOwner(), Cam.canDrive(), Cam.serverNow(), Cam.cameraDate(),
+ *   Cam.audio() (AudioContext once unlocked), Cam.video, Cam.hls(), Cam.goLive(), Cam.flag(cc), Cam.regionName(cc)
+ *   Cam.react(e), Cam.postcard(), Cam.resetPeek(), Cam.peek()
+ *
+ * Sections 12-16 (fun + social): room header, chip, Share, live title and the countries-today strip;
+ * floating reactions (POST /react); Peek, a private CSS zoom of the video; Postcards (canvas, no
+ * server work); owner tools (POST /mod/*), shown only when me.is_owner.
+ */
+
+/* ======================================================================
+ * 0. Utilities
+ * ==================================================================== */
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const round2 = v => Math.round(v * 100) / 100;
+function lsGet(k){ try{ return localStorage.getItem(k) }catch(e){ return null } }
+function lsSet(k, v){ try{ localStorage.setItem(k, v) }catch(e){} }
+let regionNames = null; try{ regionNames = new Intl.DisplayNames(['en'], {type:'region'}) }catch(e){}
+function flag(c){
+  if(c === 'LOCAL') return '🏠';
+  return /^[A-Z]{2}$/.test(c || '') ? String.fromCodePoint(...[...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) : '🌐';
+}
+function regionName(c){
+  if(c === 'LOCAL') return 'Local network';
+  if(!c) return 'Unknown';
+  try{ return regionNames?.of(c) || c }catch(e){ return c }
+}
+function fmtMS(s){ s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
+function fmtDur(s){
+  s = Math.max(0, Math.floor(s));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return h ? `${h}h ${m}m` : m ? `${m}m ${x}s` : `${x}s`;
+}
+const fmtZoom = z => (Math.round(z * 10) / 10) + '×';
+
+/* ----- Toasts (replace the old #msg line) ----- */
+const toastsEl = $('toasts');
+function toast(text, {ms = 4000, action = null} = {}){
+  if(!text) return null;
+  for(const t of toastsEl.children){
+    if(t.dataset.text === text && !action){ clearTimeout(t._tm); if(ms) t._tm = setTimeout(() => t.remove(), ms); return t }
+  }
+  const d = document.createElement('div'); d.className = 'toast'; d.dataset.text = text;
+  const s = document.createElement('span'); s.textContent = text; d.append(s);
+  if(action){ const b = document.createElement('button'); b.type = 'button'; b.textContent = action.label; b.onclick = action.fn; d.append(b) }
+  toastsEl.append(d);
+  while(toastsEl.children.length > 4) toastsEl.firstElementChild.remove();
+  if(ms) d._tm = setTimeout(() => d.remove(), ms);
+  return d;
+}
+
+/* ======================================================================
+ * 1. Identity: client id, owner key, chat name
+ * ==================================================================== */
+function newCid(){
+  const a = new Uint8Array(16); crypto.getRandomValues(a);
+  return [...a].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+let cid = lsGet('camlive_cid');
+if(!/^[0-9a-f]{32}$/.test(cid || '')){ cid = newCid(); lsSet('camlive_cid', cid) }
+
+let ownerKey = lsGet('camlive_owner_key') || '';
+(function readOwnerHash(){
+  const m = /(?:^|[#&])owner=([^&]+)/.exec(location.hash);
+  if(!m) return;
+  try{ ownerKey = decodeURIComponent(m[1]) }catch(e){ ownerKey = m[1] }
+  lsSet('camlive_owner_key', ownerKey);
+  try{ history.replaceState(null, '', location.pathname + location.search) }catch(e){}
+})();
+
+/* Auto names: most people never type one, so everyone starts as e.g. "Curious Otter". */
+const ADJ = ['Sleepy','Curious','Breezy','Sunny','Misty','Golden','Cosmic','Jolly','Quiet','Swift','Lucky','Fuzzy','Brave','Dreamy','Zippy','Mellow'];
+const NOUN = ['Otter','Heron','Mango','Falcon','Panda','Kite','Gecko','Koala','Lynx','Robin','Comet','Owl','Fox','Turtle','Sparrow','Cloud'];
+function autoName(){
+  const r = new Uint8Array(2); crypto.getRandomValues(r);
+  return ADJ[r[0] % ADJ.length] + ' ' + NOUN[r[1] % NOUN.length];
+}
+let myName = lsGet('chatName') || '';
+if(!myName){ myName = autoName(); lsSet('chatName', myName) }
+function setName(n){ myName = n || autoName(); lsSet('chatName', myName); renaming = false; showForms(); refresh() }
+// The name others see: the owner always posts as room.owner_name (the server's me.name), everyone else as myName.
+function displayName(){ const me = S.state?.me; return me?.is_owner && me.name ? me.name : myName }
+
+/* ======================================================================
+ * 2. HTTP helper
+ * ==================================================================== */
+let reloadNeeded = false;
+async function post(path, body, {quiet = false, timeout = 10000} = {}){
+  const headers = {'Content-Type':'application/json', 'X-Client':cid};
+  if(ownerKey) headers['X-Owner-Key'] = ownerKey;
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const tm = ctl ? setTimeout(() => ctl.abort(), timeout) : 0;
+  let r;
+  try{
+    r = await fetch(path, {method:'POST', headers, body:JSON.stringify(body || {}), cache:'no-store', signal:ctl?.signal});
+  }catch(e){
+    clearTimeout(tm);
+    const data = {error:'network', message:"Can't reach the server. Check your connection."};
+    if(!quiet) toast(data.message);
+    return {ok:false, status:0, data};
+  }
+  let data = null;
+  try{ data = await r.json() }catch(e){}
+  clearTimeout(tm);
+  if(!data || typeof data !== 'object') data = {};
+  if(!r.ok){
+    if(!data.message) data.message = 'Something went wrong.';
+    if(r.status === 409 && data.error === 'reload'){ needReload(data.message); return {ok:false, status:409, data} }
+    if(!quiet) toast(data.message);
+  }
+  return {ok:r.ok, status:r.status, data};
+}
+function needReload(message){
+  if(reloadNeeded) return;
+  reloadNeeded = true;
+  cancelMotion(false);
+  toast(message || 'This page was updated. Please reload.', {ms:0, action:{label:'Reload', fn:() => location.reload()}});
+}
+
+/* ======================================================================
+ * 3. State loop: one POST /state per second while visible. In the background a tab that is
+ *    queued or offered the turn polls every 5 s with hidden:true: that keeps its place in line
+ *    (without counting as a viewer) and lets the "Your turn!" chime and title flash fire.
+ * ==================================================================== */
+const S = {state:null, at:0, seatAt:0, zoomAt:0};
+let chatSince = 0, reactSince = 0, lastBoot = null;
+let inFlight = false, pollAgain = false;
+let lastOkPerf = 0, visibleSince = performance.now();
+const HIDDEN_BEAT_MS = 5000;
+let lastHiddenBeat = 0, skipRx = false;
+const pageStart = performance.now();
+const offsets = []; let clockOffset = 0;
+const listeners = [];
+function onState(fn){ listeners.push(fn) }
+function serverNow(){ return Date.now() + clockOffset }
+
+async function tick(){
+  if(reloadNeeded) return;
+  const hidden = document.visibilityState !== 'visible';
+  if(hidden){
+    const you = S.state?.seat?.you;
+    if((you !== 'queued' && you !== 'offered') || performance.now() - lastHiddenBeat < HIDDEN_BEAT_MS) return;
+  }
+  if(inFlight){ pollAgain = true; return }
+  inFlight = true;
+  if(hidden) lastHiddenBeat = performance.now();
+  const tSend = Date.now();
+  const body = {name:myName, chat_since:chatSince, react_since:reactSince};
+  if(hidden) body.hidden = true;
+  const res = await post('/state', body, {quiet:true, timeout:8000});
+  const tRecv = Date.now();
+  inFlight = false;
+  if(res.ok && res.data && typeof res.data.boot === 'string'){
+    const st = res.data;
+    if(typeof st.now === 'number'){
+      offsets.push(st.now * 1000 - (tSend + (tRecv - tSend) / 2));
+      if(offsets.length > 5) offsets.shift();
+      const sorted = [...offsets].sort((a, b) => a - b);
+      clockOffset = sorted[Math.floor(sorted.length / 2)];
+    }
+    if(performance.now() - lastOkPerf > 3000) skipRx = true;   // after a gap, don't replay old reactions
+    lastOkPerf = performance.now();
+    handleState(st, tRecv);
+  }
+  if(pollAgain){ pollAgain = false; tick() }
+}
+function refresh(){ tick() }
+setInterval(tick, 1000);
+
+function handleState(st, at){
+  if(lastBoot !== null && st.boot !== lastBoot){
+    // server restarted: start the chat over from scratch
+    clearChat(); chatSince = 0; reactSince = 0;
+    if(st.chat) st.chat.messages = [];
+    if(st.reactions) st.reactions.batches = [];
+    pollAgain = true;
+  }else{
+    const msgs = st.chat?.messages || [];
+    for(const m of msgs) if(typeof m.id === 'number' && m.id > chatSince) chatSince = m.id;
+    if(typeof st.reactions?.last === 'number') reactSince = st.reactions.last;
+  }
+  lastBoot = st.boot;
+  S.state = st; S.at = at; S.seatAt = at; S.zoomAt = at;
+  const core = [renderChat, renderViewers, renderWheel, renderZoom, renderCamera, renderNameError, renderTitle, syncVideo, renderHud];
+  for(const f of core){ try{ f(st) }catch(e){ console.error(e) } }
+  for(const f of listeners){ try{ f(st) }catch(e){ console.error(e) } }
+}
+const isOwner = () => !!S.state?.me?.is_owner;
+
+/* ======================================================================
+ * 4. Live video (HLS) and the HUD: LIVE badge, status card, local clock
+ * ==================================================================== */
+const video = $('video'), player = $('player');
+const SRC = '/hls/live.m3u8';
+let hls = null, videoOn = false, waiting = true, autoplayBlocked = false;
+const useHlsJs = !!(window.Hls && Hls.isSupported());
+const useNative = !useHlsJs && !!video.canPlayType('application/vnd.apple.mpegurl');  // Safari and iPhone play HLS natively
+const noPlayback = !useHlsJs && !useNative;
+function playVideo(){
+  const p = video.play();
+  if(p && p.catch) p.then(() => { autoplayBlocked = false }).catch(e => { if(e && e.name === 'NotAllowedError') autoplayBlocked = true });
+}
+function goLive(){
+  if(hls && hls.liveSyncPosition) video.currentTime = hls.liveSyncPosition;
+  else if(video.seekable.length) video.currentTime = Math.max(0, video.seekable.end(video.seekable.length - 1) - 1);
+  playVideo();
+}
+// The player runs only while the server reports fresh frames and the tab is visible. During a camera
+// outage, or while the tab is hidden, it is torn down: the screen goes blank instead of freezing on an
+// old frame under a LIVE badge, and it starts again from the newest frame.
+function startVideo(){
+  if(videoOn || noPlayback) return;
+  videoOn = true; waiting = true;
+  if(useHlsJs){
+    const h = hls = new Hls({liveSyncDurationCount:2, liveMaxLatencyDurationCount:5, maxLiveSyncPlaybackRate:1.5,
+                   lowLatencyMode:false, backBufferLength:10, manifestLoadingMaxRetry:Infinity,
+                   manifestLoadingRetryDelay:1000, levelLoadingMaxRetry:Infinity});
+    h.loadSource(SRC); h.attachMedia(video);
+    h.on(Hls.Events.MANIFEST_PARSED, playVideo);
+    h.on(Hls.Events.ERROR, (e, d) => {
+      if(!d.fatal || hls !== h) return;
+      waiting = true;
+      if(d.type === Hls.ErrorTypes.MEDIA_ERROR) h.recoverMediaError();
+      else setTimeout(() => { if(hls === h && !document.hidden){ h.loadSource(SRC); h.startLoad() } }, 2000);
+    });
+  }else{
+    video.src = SRC;
+    playVideo();
+  }
+}
+function stopVideo(){
+  if(!videoOn) return;
+  videoOn = false; waiting = true;
+  if(hls){ hls.destroy(); hls = null }
+  video.removeAttribute('src'); video.load();   // drops the last frame from the screen
+}
+function syncVideo(st){
+  if(st?.stream?.state === 'live' && !document.hidden) startVideo();
+  else stopVideo();
+}
+if(useNative) video.addEventListener('error', () => {
+  if(!videoOn) return;
+  waiting = true;
+  setTimeout(() => { if(videoOn){ video.src = SRC + '?' + Date.now(); playVideo() } }, 2000);
+});
+video.addEventListener('playing', () => { waiting = false; autoplayBlocked = false; renderHud() });
+video.addEventListener('waiting', () => { waiting = true; renderHud() });
+
+const liveBadge = $('liveBadge'), liveText = $('liveText'), zoomPill = $('zoomPill');
+const statusCard = $('statusCard'), statusText = $('statusText'), statusExtra = $('statusExtra');
+const hud = $('hud'), hudTime = $('hudTime'), hudPlace = $('hudPlace');
+liveBadge.onclick = () => { if(liveBadge.classList.contains('behind')) goLive() };
+statusCard.onclick = () => { if(autoplayBlocked) playVideo() };
+
+function playingDate(){
+  let t = NaN;
+  if(hls){ const d = hls.playingDate; if(d) t = d.getTime() }
+  else if(typeof video.getStartDate === 'function'){
+    const sd = video.getStartDate(); const st = sd && sd.getTime();
+    if(st && !isNaN(st)) t = st + video.currentTime * 1000;
+  }
+  return isNaN(t) || !t ? null : t;
+}
+// Seconds between the frame on screen and the newest one the player knows about. The LIVE badge uses
+// this, not EXT-X-PROGRAM-DATE-TIME: ffmpeg stamps that once at start and then adds segment lengths
+// (camera clock), so on a long-running stream it drifts away from wall time.
+function edgeDistance(){
+  if(hls){
+    const l = hls.latency;
+    if(typeof l === 'number' && isFinite(l) && l > 0) return l;
+    if(hls.liveSyncPosition) return Math.max(0, hls.liveSyncPosition - video.currentTime);
+    return null;
+  }
+  if(video.seekable.length) return Math.max(0, video.seekable.end(video.seekable.length - 1) - video.currentTime);
+  return null;
+}
+// The camera-local wall clock of the frame on screen, as a Date whose UTC fields are camera-local.
+function cameraDate(){
+  const off = (S.state?.room?.tz_offset_s || 0) * 1000;
+  return new Date((playingDate() ?? serverNow()) + off);
+}
+const camFmt = new Intl.DateTimeFormat(undefined, {timeZone:'UTC', hour:'2-digit', minute:'2-digit'});
+const localFmt = new Intl.DateTimeFormat(undefined, {hour:'2-digit', minute:'2-digit'});
+
+function computeStatus(zoomBusy){
+  if(noPlayback) return {text:'This browser cannot play the live video.'};
+  const quietFor = performance.now() - Math.max(lastOkPerf, visibleSince, pageStart);
+  if(quietFor > 6000) return {text:"Can't reach the stream. Check your connection."};
+  if(!S.state) return {text:'Connecting…'};
+  const st = S.state.stream || {};
+  if(st.state === 'offline') return {text:'Loading…'};  // camera outage: no outage message (owner's choice); the player restarts by itself
+  if(st.state === 'starting' && !zoomBusy) return {text:'Starting the stream…'};
+  if(autoplayBlocked) return {text:'▶ Tap to start the video', tap:true};
+  if(waiting && !zoomBusy) return {text:'Loading…'};
+  return null;
+}
+
+function renderHud(){
+  // zoom pill
+  const pill = zoomPillText();
+  zoomPill.hidden = !pill; if(pill && zoomPill.textContent !== pill) zoomPill.textContent = pill;
+  // status card
+  const s = computeStatus(!!pill);
+  statusCard.classList.toggle('empty', !s);
+  statusCard.classList.toggle('tap', !!s?.tap);
+  if(s){ if(statusText.textContent !== s.text) statusText.textContent = s.text; statusExtra.textContent = s.extra || '' }
+  else if(statusText.textContent) statusText.textContent = '';
+  player.classList.toggle('dim', !!s?.dim);
+  // LIVE / delay badge
+  const pd = playingDate();
+  const showBadge = !pill && !s && !video.paused;
+  liveBadge.hidden = !showBadge;
+  if(showBadge){
+    const edge = edgeDistance();
+    const delay = edge != null ? edge + 1.5 : null;   // + about one segment and the encoder
+    const behind = delay != null && delay > 8;
+    liveBadge.classList.toggle('behind', behind);
+    liveText.textContent = delay == null ? 'LIVE' : behind ? `${Math.round(delay)} s behind · Jump to live` : `LIVE · ${Math.round(delay)} s`;
+    liveBadge.setAttribute('aria-label', behind ? `${Math.round(delay)} seconds behind. Jump to live` : 'Live' + (delay != null ? `, about ${Math.round(delay)} seconds delay` : ''));
+    liveBadge.tabIndex = behind ? 0 : -1;
+  }
+  // camera-local clock
+  const room = S.state?.room;
+  hud.hidden = !room;
+  if(room){
+    const base = pd ?? serverNow();
+    const cam = new Date(base + (room.tz_offset_s || 0) * 1000);
+    const h = cam.getUTCHours();
+    hudTime.textContent = ((h >= 19 || h < 6) ? '🌙 ' : '🕔 ') + camFmt.format(cam);
+    hudPlace.textContent = room.place ? ' · ' + room.place : '';
+    hud.title = `${localFmt.format(new Date(base))} where you are`;
+  }
+}
+if(typeof ResizeObserver === 'function'){
+  new ResizeObserver(es => { for(const e of es) player.classList.toggle('narrow', e.contentRect.width < 420) }).observe(player);
+}
+
+/* ======================================================================
+ * 5. Take the wheel: seat card, queue, countdown ring, chime, title flash
+ * ==================================================================== */
+const controls = $('controls');
+const wheelText = $('wheelText'), wheelSub = $('wheelSub'), claimBtn = $('claimBtn');
+const joinBtn = $('joinBtn'), leaveLineBtn = $('leaveLineBtn'), passBtn = $('passBtn'), wheelAnnounce = $('wheelAnnounce');
+const ring = $('ring'), ringBar = $('ringBar');
+const RING_C = 2 * Math.PI * 34;
+ringBar.style.strokeDasharray = RING_C.toFixed(2);
+let prevYou = null, seatBusy = false, leavingLine = false;
+
+function canDrive(){
+  const st = S.state; if(!st) return false;
+  if(st.me?.is_owner) return true;
+  const s = st.seat; if(!s || s.mode === 'locked') return false;
+  return s.you === 'driver' || s.you === 'offered' || (s.mode === 'free' && s.queue_len === 0);
+}
+function applySeat(seat){
+  if(!seat || !S.state) return;
+  S.state.seat = seat; S.seatAt = Date.now();
+  renderWheel(); renderZoom();
+}
+const seatLeft = v => typeof v === 'number' ? Math.max(0, v - (Date.now() - S.seatAt) / 1000) : null;
+const driverLabel = d => d ? `${flag(d.country)} ${d.name}` : 'Someone';
+
+function renderWheel(){
+  const st = S.state, s = st?.seat;
+  if(!s){ wheelText.textContent = 'Connecting…'; return }
+  const owner = !!st.me?.is_owner;
+  const left = seatLeft(s.left_s), idle = seatLeft(s.idle_left_s), eta = seatLeft(s.eta_s);
+  let text = '', sub = '', warn = false;
+  const show = {join:false, leave:false, pass:false, claim:false};
+  const queueBits = () => {
+    if(s.you === 'queued'){ sub = `You're #${s.your_pos}` + (eta != null ? ` · about ${fmtMS(eta)}` : ''); show.leave = true }
+    else if(!owner) show.join = true;
+  };
+  if(s.you === 'driver'){
+    text = left != null ? `You're driving · ${fmtMS(left)} · ${s.queue_len} waiting`
+         : s.queue_len ? `You're driving · no time limit · ${s.queue_len} waiting` : "You're driving · no time limit while nobody's waiting";
+    show.pass = true;
+    if(s.mode === 'locked') sub = '🔒 Controls are paused for everyone else';
+    if(idle != null && idle <= 8){ sub = 'Still there? Move to keep the wheel'; warn = true }
+  }else if(s.you === 'offered'){
+    show.claim = true;
+    claimBtn.textContent = `🎮 Your turn! Tap to take the wheel (${Math.ceil(idle ?? 0)})`;
+  }else if(s.mode === 'locked'){
+    text = '🔒 The owner has paused the controls.';
+    if(s.you === 'queued') queueBits();
+  }else if(s.mode === 'offered'){
+    text = `Waiting for ${s.driver?.name || 'the next driver'} to take the wheel… (${Math.ceil(idle ?? 0)})`;
+    queueBits();
+  }else if(s.mode === 'driving'){
+    text = `${driverLabel(s.driver)} is driving` + (left != null ? ` · ${fmtMS(left)}` : '');
+    queueBits();
+  }else{
+    text = s.queue_len ? `🎮 The wheel is free · ${s.queue_len} in line` : "🎮 Nobody's driving. Press an arrow to take the wheel.";
+    if(s.queue_len) queueBits();
+  }
+  wheelText.hidden = show.claim;
+  if(!show.claim && wheelText.textContent !== text) wheelText.textContent = text;
+  wheelSub.hidden = !sub; wheelSub.textContent = sub; wheelSub.classList.toggle('warn', warn);
+  claimBtn.hidden = !show.claim; joinBtn.hidden = !show.join; leaveLineBtn.hidden = !show.leave; passBtn.hidden = !show.pass;
+  // countdown ring around the stop button
+  const ringOn = s.you === 'driver' && left != null && s.turn_s > 0;
+  ring.toggleAttribute('hidden', !ringOn);
+  if(ringOn){
+    ringBar.style.strokeDashoffset = (RING_C * (1 - clamp(left / s.turn_s, 0, 1))).toFixed(2);
+    ring.classList.toggle('amber', left <= 10);
+  }
+  controls.classList.toggle('dim', !canDrive());
+  // transitions
+  if(s.you !== prevYou){
+    if(s.you === 'offered') yourTurn();
+    else if(prevYou === 'offered') stopTitleFlash();
+    if(s.you === 'driver' && prevYou !== null) wheelAnnounce.textContent = "You're driving.";
+    else if(s.you === 'queued' && prevYou !== 'queued') wheelAnnounce.textContent = `You're number ${s.your_pos} in line.`;
+    if(prevYou === 'queued' && s.you === 'none' && !leavingLine) toast('You lost your place in line. Join again to take a turn.');
+    prevYou = s.you;
+  }
+}
+
+async function seatCall(path){
+  if(seatBusy) return null;
+  seatBusy = true;
+  const r = await post(path, {});
+  seatBusy = false;
+  if(r.data?.seat) applySeat(r.data.seat);
+  refresh();
+  return r;
+}
+async function joinFlow(){
+  const s = S.state?.seat; if(!s) return;
+  if(s.mode === 'locked' && !isOwner()){ toast('The owner has paused the controls.'); return }
+  if(s.you === 'queued'){ toast(`You're #${s.your_pos} in line`); return }
+  const r = await seatCall('/seat/join');
+  if(r?.ok){
+    const ns = r.data.seat;
+    if(ns?.you === 'queued') toast(`You're in line (#${ns.your_pos})`);
+    else if(ns?.you === 'driver') toast("You've got the wheel!");
+  }
+}
+joinBtn.onclick = joinFlow;
+leaveLineBtn.onclick = async () => { leavingLine = true; await seatCall('/seat/leave'); leavingLine = false };
+passBtn.onclick = async () => { cancelMotion(true); await seatCall('/seat/leave') };
+claimBtn.onclick = () => seatCall('/seat/claim');
+
+/* ----- "Your turn!" alerts: chime, vibration, title flash ----- */
+let actx = null;
+function unlockAudio(){
+  try{
+    if(!actx){ const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return; actx = new AC() }
+    if(actx.state === 'suspended') actx.resume();
+  }catch(e){}
+}
+addEventListener('pointerdown', unlockAudio, {capture:true});
+addEventListener('keydown', unlockAudio, {capture:true});
+function chime(){
+  if(!actx || actx.state !== 'running') return;
+  const t = actx.currentTime;
+  [[660, 0], [990, 0.12]].forEach(([f, dt]) => {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.08, t + dt);
+    g.gain.setValueAtTime(0.08, t + dt + 0.1);
+    g.gain.linearRampToValueAtTime(0, t + dt + 0.12);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t + dt); o.stop(t + dt + 0.13);
+  });
+}
+const initialTitle = document.title;
+let titleFlash = null, titleAlt = false;
+function baseTitleOf(){ try{ return Cam.baseTitle() }catch(e){ return initialTitle } }
+function renderTitle(){ if(!titleFlash){ const t = baseTitleOf(); if(document.title !== t) document.title = t } }
+function yourTurn(){
+  chime();
+  try{ navigator.vibrate?.([30, 60, 30]) }catch(e){}
+  wheelAnnounce.textContent = "It's your turn! Press an arrow or the button to take the wheel.";
+  stopTitleFlash();
+  titleAlt = true; document.title = '🎮 Your turn!';
+  titleFlash = setInterval(() => { titleAlt = !titleAlt; document.title = titleAlt ? '🎮 Your turn!' : baseTitleOf() }, 1000);
+}
+function stopTitleFlash(){ if(titleFlash){ clearInterval(titleFlash); titleFlash = null } document.title = baseTitleOf() }
+
+/* ======================================================================
+ * 6. Camera controls: tap = nudge, hold = move with 400 ms keepalive
+ * ==================================================================== */
+const speedEl = $('speed'), speedOut = $('speedOut'), stopBtn = $('stop');
+const DIRS = {up:[0, 1], down:[0, -1], left:[-1, 0], right:[1, 0]};
+const KEYMAP = {arrowup:'up', w:'up', arrowdown:'down', s:'down', arrowleft:'left', a:'left', arrowright:'right', d:'right'};
+const held = new Map();          // input source -> direction
+let shiftDown = false, pressTimer = null, holding = false, keepalive = null, pressVec = null;
+const typing = () => !!document.activeElement?.matches('input:not([type=range]),textarea,[contenteditable]');
+
+speedEl.addEventListener('input', () => { speedOut.value = Math.round(speedEl.value * 100) + '%' });
+speedEl.addEventListener('pointerup', () => speedEl.blur());
+
+function vectorOf(dirs){
+  let x = 0, y = 0;
+  for(const d of new Set(dirs)){ x += DIRS[d][0]; y += DIRS[d][1] }
+  const sp = shiftDown ? 1 : +speedEl.value;
+  return {pan:round2(clamp(x * sp, -1, 1)), tilt:round2(clamp(y * sp, -1, 1))};
+}
+const currentVector = () => vectorOf(held.values());
+function markButtons(){
+  const on = new Set(held.values());
+  document.querySelectorAll('.pad button[data-dir]').forEach(b => b.classList.toggle('on', on.has(b.dataset.dir)));
+}
+
+/* Camera command channel: one request in flight, latest pending command wins, so /stop
+   can never overtake an earlier /move on the wire. */
+let camInFlight = false, camPending = null, camErrAt = 0;
+function camSend(path, body){
+  camPending = {path, body};
+  if(!camInFlight) camPump();
+}
+async function camPump(){
+  while(camPending){
+    const {path, body} = camPending; camPending = null;
+    camInFlight = true;
+    const r = await post(path, body, {quiet:true, timeout:4000});
+    camInFlight = false;
+    if(r.data?.seat) applySeat(r.data.seat);
+    if(r.data?.camera && S.state){ S.state.camera = r.data.camera; renderCamera(S.state) }
+    if(!r.ok){
+      if(r.status === 409 || r.status === 403){ cancelMotion(false); camPending = null }
+      if(r.status !== 409 || r.data.error !== 'reload'){
+        const now = Date.now();
+        if(now - camErrAt > 1500 || r.status !== 0){ camErrAt = now; toast(r.data.message) }
+      }
+      if(r.status === 409 || r.status === 403) refresh();
+    }else if(path === '/move' && S.state?.seat?.you !== 'driver' && !isOwner()){
+      refresh();
+    }
+  }
+}
+const sendMove = v => camSend('/move', v);
+function sendStop(){ camSend('/stop', {}) }
+
+function press(src, dir){
+  if(reloadNeeded) return;
+  if(!canDrive()){ joinFlow(); return }
+  const wasEmpty = held.size === 0;
+  held.set(src, dir); markButtons();
+  const v = currentVector(); if(v.pan || v.tilt) pressVec = v;
+  if(holding){ sendMove(v); return }
+  if(wasEmpty){ clearTimeout(pressTimer); pressTimer = setTimeout(beginHold, 250) }
+}
+function release(src){
+  if(!held.has(src)) return;
+  held.delete(src); markButtons();
+  if(held.size){ if(holding) sendMove(currentVector()); return }
+  if(pressTimer){
+    clearTimeout(pressTimer); pressTimer = null;
+    if(pressVec) sendMove({...pressVec, nudge:true});   // quick tap: one small, predictable step
+    pressVec = null; return;
+  }
+  if(holding) endHold(true);
+}
+function beginHold(){
+  pressTimer = null;
+  if(!held.size) return;
+  holding = true;
+  sendMove(currentVector());
+  keepalive = setInterval(() => { if(held.size) sendMove(currentVector()) }, 400);
+}
+function endHold(stop){
+  holding = false; clearInterval(keepalive); keepalive = null; pressVec = null;
+  if(stop) sendStop();
+}
+// Drop every held input. sendStop=true also tells the server to stop (only when we were moving).
+function cancelMotion(stop){
+  const wasMoving = holding;
+  held.clear(); markButtons();
+  clearTimeout(pressTimer); pressTimer = null; pressVec = null;
+  if(holding) endHold(false);
+  if(stop && wasMoving) sendStop();
+}
+function nudge(dir){
+  if(reloadNeeded) return;
+  if(!canDrive()){ joinFlow(); return }
+  const v = vectorOf([dir]);
+  sendMove({...v, nudge:true});
+}
+
+// Drop one input without the tap nudge (a touch that turned out to be a scroll).
+function drop(src){
+  if(!held.has(src)) return;
+  held.delete(src); markButtons();
+  if(held.size){ if(holding) sendMove(currentVector()); return }
+  clearTimeout(pressTimer); pressTimer = null; pressVec = null;
+  if(holding) endHold(true);
+}
+/* Touch: the pad allows vertical page scrolling (touch-action:pan-y). A touch that moves more than
+   10 px before the hold starts, or that the browser cancels to scroll, is dropped with no nudge.
+   Someone who can't drive joins the line on release, not on touch-down, so a swipe never queues them. */
+const padDown = new Map();   // pointer id -> {x, y, join}
+document.querySelectorAll('.pad button[data-dir]').forEach(b => {
+  const dir = b.dataset.dir;
+  b.addEventListener('pointerdown', e => {
+    if(e.button > 0 || reloadNeeded) return;
+    e.preventDefault();
+    try{ b.setPointerCapture(e.pointerId) }catch(err){}
+    const join = !canDrive();
+    padDown.set(e.pointerId, {x:e.clientX, y:e.clientY, join, touch:e.pointerType !== 'mouse'});
+    if(!join) press('p' + e.pointerId, dir);
+  });
+  b.addEventListener('pointermove', e => {
+    const d = padDown.get(e.pointerId);
+    if(!d || !d.touch || Math.hypot(e.clientX - d.x, e.clientY - d.y) <= 10) return;
+    if(d.join){ padDown.delete(e.pointerId); return }
+    if(!holding){ padDown.delete(e.pointerId); drop('p' + e.pointerId) }
+  });
+  b.addEventListener('pointerup', e => {
+    const d = padDown.get(e.pointerId); padDown.delete(e.pointerId);
+    if(d?.join){ joinFlow(); return }
+    release('p' + e.pointerId);
+  });
+  b.addEventListener('pointercancel', e => {
+    padDown.delete(e.pointerId);
+    const src = 'p' + e.pointerId;
+    if(holding) release(src); else drop(src);
+  });
+  b.addEventListener('lostpointercapture', e => {
+    padDown.delete(e.pointerId);
+    release('p' + e.pointerId);
+  });
+  b.addEventListener('contextmenu', e => e.preventDefault());
+  b.addEventListener('keydown', e => {
+    if((e.key === 'Enter' || e.key === ' ') && !e.repeat){ e.preventDefault(); e.stopPropagation(); nudge(dir) }
+  });
+});
+stopBtn.addEventListener('click', () => {
+  cancelMotion(false);
+  if(S.state?.seat?.you === 'driver' || isOwner()) sendStop();
+});
+
+// Keys inside these keep their own meaning (arrows scroll, change the select or the slider, …).
+const OWN_KEYS = 'input,select,textarea,[contenteditable],summary,dialog *,#log,#viewerList';
+let keyHintAt = 0;
+addEventListener('keydown', e => {
+  if(e.key === 'Shift'){ shiftDown = true; if(holding) sendMove(currentVector()); return }
+  if(e.ctrlKey || e.metaKey || e.altKey || document.activeElement?.closest?.(OWN_KEYS)) return;
+  const k = KEYMAP[(e.key || '').toLowerCase()];
+  if(k){
+    if(!canDrive()){
+      // not your turn: arrows keep scrolling the page; a letter key shows how to take a turn
+      if(!e.key.startsWith('Arrow') && !e.repeat && Date.now() - keyHintAt > 5000){
+        keyHintAt = Date.now();
+        const s = S.state?.seat;
+        toast(s?.mode === 'locked' ? 'The owner has paused the controls.'
+          : s?.you === 'queued' ? `You're #${s.your_pos} in line` : 'Someone else is driving. Tap “Get in line” to take a turn.');
+      }
+      return;
+    }
+    e.preventDefault();
+    if(e.repeat) return;
+    shiftDown = e.shiftKey;
+    press('k' + e.key.toLowerCase(), k);
+    return;
+  }
+  if(e.repeat) return;
+  if(e.key === '+' || e.key === '='){ e.preventDefault(); zoomStep(1) }
+  else if(e.key === '-' || e.key === '_'){ e.preventDefault(); zoomStep(-1) }
+});
+// Capture phase: no element (the postcard dialog stops keyup propagation) can swallow a key release.
+addEventListener('keyup', e => {
+  if(e.key === 'Shift'){ shiftDown = false; if(holding) sendMove(currentVector()); return }
+  const k = KEYMAP[(e.key || '').toLowerCase()];
+  if(k) release('k' + e.key.toLowerCase());
+}, true);
+addEventListener('blur', () => cancelMotion(true));
+
+/* ----- camera health from /state ----- */
+let lastCamMsg = null;
+function renderCamera(st){
+  const m = st.camera?.message || null;
+  if(m && m !== lastCamMsg) toast(m);
+  lastCamMsg = m;
+}
+
+/* ======================================================================
+ * 7. Shared camera zoom: local target, 600 ms debounce, driver only
+ * ==================================================================== */
+const zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomLevel = $('zoomLevel');
+const DEFAULT_LEVELS = [1, 1.5, 2, 3, 4];
+let zoomLocal = null, zoomTimer = null, zoomSending = false;
+const zoomLevels = () => S.state?.zoom?.levels || DEFAULT_LEVELS;
+function zoomShown(){ return zoomLocal ?? S.state?.zoom?.target ?? 1 }
+function nearestIdx(levels, z){
+  let best = 0;
+  levels.forEach((l, i) => { if(Math.abs(l - z) < Math.abs(levels[best] - z)) best = i });
+  return best;
+}
+function zoomStep(dir){
+  if(!canDrive()){ toast('Only the driver can zoom.'); return }
+  const levels = zoomLevels();
+  setZoomLocal(levels[clamp(nearestIdx(levels, zoomShown()) + dir, 0, levels.length - 1)]);
+}
+function setZoomLocal(level){
+  zoomLocal = level; renderZoom();
+  clearTimeout(zoomTimer); zoomTimer = setTimeout(sendZoom, 600);
+}
+async function sendZoom(){
+  zoomTimer = null;
+  const level = zoomLocal;
+  if(level == null) return;
+  if(S.state?.zoom && level === S.state.zoom.target){ zoomLocal = null; renderZoom(); return }
+  zoomSending = true;
+  const r = await post('/zoom', {level});
+  zoomSending = false;
+  if(r.ok && r.data.zoom && S.state){ S.state.zoom = r.data.zoom; S.zoomAt = Date.now() }
+  if(r.data?.seat) applySeat(r.data.seat);
+  if(zoomTimer) return;            // newer input is waiting; keep showing it
+  zoomLocal = null; renderZoom(); renderHud(); refresh();
+}
+zoomIn.onclick = () => zoomStep(1);
+zoomOut.onclick = () => zoomStep(-1);
+zoomLevel.onclick = () => { if(!canDrive()){ joinFlow(); return } setZoomLocal(1) };
+
+function renderZoom(){
+  const levels = zoomLevels(), z = zoomShown(), can = canDrive();
+  const digital = z > 1.8;
+  zoomLevel.textContent = fmtZoom(z) + (digital ? ' digital' : '');
+  zoomLevel.title = digital ? 'Enlarged: no extra detail. Click to reset to 1×' : 'Reset zoom to 1×';
+  zoomLevel.setAttribute('aria-label', `Camera zoom ${fmtZoom(z)}${digital ? ' digital' : ''}. Reset to 1×`);
+  zoomIn.disabled = !can || z >= levels[levels.length - 1];
+  zoomOut.disabled = !can || z <= levels[0];
+  zoomLevel.disabled = !can || z === levels[0];
+}
+function zoomPillText(){
+  const z = S.state?.zoom;
+  if(!z || z.target === z.level) return null;
+  const left = typeof z.applies_in_s === 'number' ? Math.max(0, z.applies_in_s - (Date.now() - S.zoomAt) / 1000) : null;
+  let t = (left == null || left <= 0 || (z.live && left < 2)) ? '🔍 Zooming…' : `🔍 Zooming to ${fmtZoom(z.target)} · in ${Math.ceil(left)} s`;
+  if(!z.live) t += ' · picture refreshes in a few seconds';
+  return t;
+}
+
+/* ======================================================================
+ * 8. Viewers panel
+ * ==================================================================== */
+const viewerCount = $('viewerCount'), viewerList = $('viewerList');
+let viewersKey = '', muteMenuTag = null;
+function renderViewers(st){
+  const v = st.viewers; if(!v) return;
+  const count = v.count | 0, named = Array.isArray(v.named) ? v.named : [];
+  const myTag = st.me?.tag || '', owner = isOwner();
+  viewerCount.textContent = `${count} watching`;
+  // Rebuild the list only when it changed, so focus and open menus survive the 1 s poll.
+  const key = JSON.stringify([count, named, myTag, owner, muteMenuTag]);
+  if(key === viewersKey) return;
+  const hadFocus = viewerList.contains(document.activeElement) ? document.activeElement.dataset.focusKey : null;
+  viewersKey = key;
+  const rows = named.map(x => {
+    const li = document.createElement('li');
+    const mine = !!(x.tag && x.tag === myTag);
+    li.classList.toggle('me', mine);
+    const f = document.createElement('span'); f.className = 'flag'; f.textContent = flag(x.country); f.setAttribute('aria-hidden', 'true');
+    const n = document.createElement('span'); n.className = 'vname';
+    n.textContent = (x.driver ? '🎮 ' : '') + (x.name || 'Guest') + (x.owner ? ' 👑' : '') + (mine ? ' (you)' : '');
+    li.append(f, n);
+    if(x.tag){ const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = x.tag; li.append(tg) }
+    if(owner && x.tag && !x.owner && !mine) addViewerMute(li, x);
+    const w = document.createElement('span'); w.className = 'where'; w.textContent = regionName(x.country);
+    li.append(w);
+    try{ Cam.hooks.viewerRow?.(li, x) }catch(e){ console.error(e) }
+    return li;
+  });
+  const more = count - named.length;
+  if(more > 0){
+    const li = document.createElement('li'); li.className = 'more';
+    li.textContent = named.length ? `+${more} more` : `${more} watching without a name`;
+    rows.push(li);
+  }
+  viewerList.replaceChildren(...rows);
+  if(hadFocus) focusKey(hadFocus);
+}
+
+/* ======================================================================
+ * 9. Chat
+ * ==================================================================== */
+const log = $('log'), nameForm = $('nameForm'), sendForm = $('sendForm'), sendBtn = $('sendBtn');
+const nameIn = $('nameIn'), textIn = $('textIn'), renameBtn = $('rename'), nameMsg = $('nameMsg');
+const youAre = $('youAre'), youName = $('youName'), youTag = $('youTag'), slowNote = $('slowNote');
+let sendCooldown = null, renaming = false, mutedLeft = 0;
+const NAME_HELP = 'Pick a name for the chat (2–24 characters).';
+
+// "You're Curious Otter · change"; the rename field opens in place of that line.
+function showForms(){
+  const st = S.state, bad = !!(st?.me?.name_error && myName);
+  nameForm.hidden = !renaming; youAre.hidden = renaming;
+  youName.textContent = displayName();
+  $('renameWrap').hidden = !!st?.me?.is_owner;   // the owner always posts as room.owner_name
+  youTag.textContent = st?.me?.tag || '';
+  youTag.title = st?.me?.tag ? 'Your tag. Names can repeat; tags can’t.' : '';
+  youAre.classList.toggle('bad', bad);
+  youAre.title = bad ? 'Others can’t see this name. Pick another.' : '';
+  textIn.disabled = mutedLeft > 0;
+  textIn.placeholder = mutedLeft > 0 ? `You're muted for ${Math.ceil(mutedLeft / 60)} min` : 'Message as ' + displayName();
+}
+nameForm.onsubmit = e => {
+  e.preventDefault();
+  const n = nameIn.value.trim().replace(/\s+/g, ' ');
+  if(n.length < 2 || n.length > 24){ nameMsg.textContent = 'Names need 2–24 characters.'; nameIn.focus(); return }
+  lastNameErr = '';
+  setName(n); textIn.focus();
+};
+renameBtn.onclick = () => openRename();
+$('nameCancel').onclick = () => { renaming = false; showForms(); renameBtn.focus() };
+nameIn.addEventListener('keydown', e => { if(e.key === 'Escape'){ e.preventDefault(); $('nameCancel').click() } });
+function openRename(msg){
+  renaming = true; nameMsg.textContent = msg || NAME_HELP;
+  nameIn.value = myName; showForms(); nameIn.focus(); nameIn.select();
+}
+
+let lastNameErr = '';
+function renderNameError(st){
+  const err = st.me?.name_error;
+  mutedLeft = typeof st.me?.muted_s === 'number' ? st.me.muted_s : 0;
+  const slow = st.chat?.slow_s | 0;
+  slowNote.hidden = !slow; slowNote.textContent = slow ? `🐢 one message every ${slow} s` : '';
+  showForms();
+  if(!err || !myName){ lastNameErr = ''; return }
+  const key = err + '|' + myName;
+  if(key === lastNameErr) return;
+  lastNameErr = key;
+  openRename(err === 'reserved' ? 'That name is reserved. Pick another.' : 'Names need 2–24 characters.');
+}
+
+function clearChat(){ log.replaceChildren(); const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'No messages yet.'; log.append(e) }
+function msgEl(m){
+  const d = document.createElement('div');
+  d.dataset.id = m.id;
+  if(m.kind === 'sys'){
+    d.className = 'm sys';
+    const place = m.cc ? flag(m.cc) + ' ' + regionName(m.cc) : '';
+    d.textContent = String(m.text || '').split('{cc}').join(place);
+  }else{
+    const me = S.state?.me;
+    d.className = 'm' + (me && m.tag && m.tag === me.tag ? ' mine' : '') + (m.owner ? ' owner' : '');
+    const who = document.createElement('span'); who.className = 'who'; who.textContent = m.name;
+    if(m.country){ who.title = regionName(m.country) }
+    d.append(who);
+    if(m.tag){
+      // the tag is derived from the sender's id on the server, so two "Ann"s are told apart
+      const tg = document.createElement('span'); tg.className = 'tag'; tg.textContent = m.tag;
+      tg.title = 'Tag: names can repeat, tags can’t'; d.append(tg);
+    }
+    if(m.owner){ const c = document.createElement('span'); c.className = 'crown'; c.textContent = '👑'; c.title = 'Owner'; c.setAttribute('aria-label', 'owner'); d.append(c) }
+    const when = document.createElement('span'); when.className = 'when';
+    when.textContent = new Date(m.t * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const txt = document.createElement('div'); txt.className = 'txt'; txt.textContent = m.text;
+    d.append(when, txt);
+    d._msg = m;
+    if(isOwner()) addModMenu(d, m);
+  }
+  try{ Cam.hooks.msg?.(d, m) }catch(e){ console.error(e) }
+  return d;
+}
+function addMessages(msgs){
+  if(!msgs.length) return;
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+  let added = false;
+  for(const m of msgs){
+    if(typeof m.id !== 'number' || log.querySelector(`[data-id="${m.id}"]`)) continue;
+    log.querySelector('.empty')?.remove();
+    log.append(msgEl(m)); added = true;
+  }
+  while(log.children.length > 300) log.firstElementChild.remove();
+  if(added && atBottom) log.scrollTop = log.scrollHeight;
+}
+function renderChat(st){
+  addMessages(st.chat?.messages || []);
+  for(const id of st.chat?.deleted || []) log.querySelector(`[data-id="${Number(id)}"]`)?.remove();
+}
+function cooldown(sec){
+  clearInterval(sendCooldown);
+  let left = Math.max(1, Math.ceil(sec));
+  sendBtn.disabled = true; sendBtn.textContent = `Send (${left})`;
+  sendCooldown = setInterval(() => {
+    left--;
+    if(left <= 0){ clearInterval(sendCooldown); sendCooldown = null; sendBtn.disabled = false; sendBtn.textContent = 'Send' }
+    else sendBtn.textContent = `Send (${left})`;
+  }, 1000);
+}
+sendForm.onsubmit = async e => {
+  e.preventDefault();
+  const text = textIn.value.trim();
+  if(!text || sendBtn.disabled) return;
+  textIn.value = ''; sendBtn.disabled = true;
+  const r = await post('/chat', {name:myName, text});
+  if(!sendCooldown) sendBtn.disabled = false;
+  if(r.ok){
+    if(r.data.message && typeof r.data.message === 'object'){ addMessages([r.data.message]); log.scrollTop = log.scrollHeight }
+    const slow = S.state?.chat?.slow_s | 0;
+    if(slow > 0 && !isOwner()) cooldown(slow);
+    refresh();
+    return;
+  }
+  if(!textIn.value) textIn.value = text;
+  if(typeof r.data.retry_in === 'number' && r.data.retry_in > 0) cooldown(r.data.retry_in);
+  if(r.data.error === 'name_invalid' || r.data.error === 'name_reserved') openRename(r.data.message);
+  if(r.data.error === 'muted' && typeof r.data.muted_s === 'number'){ mutedLeft = r.data.muted_s; showForms() }
+};
+showForms();
+
+/* ======================================================================
+ * 10. Lifecycle: hidden tabs, leaving, live UI timer
+ * ==================================================================== */
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){
+    cancelMotion(true);
+    stopVideo();          // on return it restarts at the newest frame (the next /state), never the old buffer
+  }else{
+    visibleSince = performance.now();
+    skipRx = true;
+    tick();
+    try{ renderHud() }catch(e){ console.error(e) }   // drop the LIVE badge left from before the tab was hidden
+  }
+});
+addEventListener('pagehide', () => {
+  try{ navigator.sendBeacon('/presence/leave', JSON.stringify({cid})) }catch(e){}
+});
+setInterval(() => {
+  if(document.hidden) return;
+  try{ renderWheel(); renderHud() }catch(e){ console.error(e) }
+}, 500);
+
+/* ======================================================================
+ * 11. Internal API for the rest of the page
+ * ==================================================================== */
+const Cam = window.Cam = {
+  post, onState, refresh, toast, flag, regionName, fmtMS, fmtDur, serverNow, cameraDate,
+  get state(){ return S.state }, get cid(){ return cid }, get name(){ return myName }, setName,
+  isOwner, canDrive, applySeat, goLive, video, hls:() => hls, audio:() => actx, unlockAudio,
+  baseTitle:() => initialTitle,
+  hooks:{msg:null, viewerRow:null},
+};
+
+/* ======================================================================
+ * 12. Room identity: header, viewer chip, Share, live tab title, countries today
+ * ==================================================================== */
+const roomNameEl = $('roomName'), roomTaglineEl = $('roomTagline'), roomChip = $('roomChip'), chipText = $('chipText');
+const flagStrip = $('flagStrip');
+const isCC = c => /^[A-Z]{2}$/.test(c || '');
+const cssEsc = v => (window.CSS && CSS.escape) ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&');
+const reduceMQ = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+const reduceMotion = () => !!reduceMQ?.matches;
+function mkEl(tag, cls, text){
+  const e = document.createElement(tag);
+  if(cls) e.className = cls;
+  if(text != null) e.textContent = text;
+  return e;
+}
+function mkBtn(text, label, cls){
+  const b = mkEl('button', cls, text); b.type = 'button';
+  if(label){ b.setAttribute('aria-label', label); b.title = label }
+  return b;
+}
+
+Cam.baseTitle = () => {
+  const st = S.state;
+  if(!st?.room?.name || !st.viewers) return initialTitle;
+  return `● ${st.viewers.count | 0} watching · ${st.room.name}`;
+};
+
+function renderRoom(st){
+  const room = st.room || {};
+  if(room.name && roomNameEl.textContent !== room.name) roomNameEl.textContent = room.name;
+  if(typeof room.tagline === 'string'){
+    if(roomTaglineEl.textContent !== room.tagline) roomTaglineEl.textContent = room.tagline;
+    roomTaglineEl.hidden = !room.tagline;
+  }
+  const v = st.viewers;
+  if(v){
+    const count = v.count | 0;
+    const top = Object.entries(v.countries || {}).filter(([c]) => isCC(c))
+      .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0])).slice(0, 3).map(([c]) => c);
+    const t = `${count} watching` + (top.length ? ' · ' + top.map(flag).join('') : '');
+    if(chipText.textContent !== t) chipText.textContent = t;
+    roomChip.title = (top.length ? 'Mostly from ' + top.map(regionName).join(', ') + '. ' : '') +
+                     (st.flags?.peak_today ? `Peak today: ${st.flags.peak_today}` : '');
+    roomChip.hidden = false;
+  }
+  renderFlags(st.flags);
+}
+
+// "Today: 🇮🇳🇺🇸🇩🇪 +9 · 41 countries all-time"; a newly arrived flag pops in.
+let knownFlags = null, flagsKey = '';
+function renderFlags(f){
+  const today = f && Array.isArray(f.today) ? f.today.filter(isCC) : [];
+  if(!today.length){ flagStrip.hidden = true; return }
+  const shown = today.slice(0, 12);
+  const more = Math.max(f.today_count | 0, today.length) - shown.length;
+  const all = f.all_time_count | 0;
+  const key = JSON.stringify([shown, more, all]);
+  if(key === flagsKey) return;
+  flagsKey = key;
+  const fs = mkEl('span', 'fs');
+  for(const c of shown){
+    const sp = mkEl('span', knownFlags && !knownFlags.has(c) && !reduceMotion() ? 'new' : '', flag(c));
+    sp.title = regionName(c); sp.setAttribute('role', 'img'); sp.setAttribute('aria-label', regionName(c));
+    fs.append(sp);
+  }
+  knownFlags = new Set(today);
+  const parts = ['Today: ', fs];
+  if(more > 0) parts.push(` +${more}`);
+  if(all) parts.push(` · ${all} ${all === 1 ? 'country' : 'countries'} all-time`);
+  flagStrip.replaceChildren(...parts);
+  flagStrip.hidden = false;
+}
+
+$('shareBtn').onclick = async () => {
+  const url = location.origin;
+  if(navigator.share){
+    try{ await navigator.share({title:Cam.baseTitle(), url}); return }
+    catch(e){ if(e && e.name === 'AbortError') return }
+  }
+  try{ await navigator.clipboard.writeText(url); toast('Link copied. Heads up: it changes if the stream restarts.') }
+  catch(e){ toast(url, {ms:10000}) }
+};
+
+/* ======================================================================
+ * 13. Reactions: tap or hold an emoji; everyone's taps float up the video
+ * ==================================================================== */
+const DEFAULT_REACTIONS = ['😍', '🌅', '😂', '🐦', '🔥', '👋'];
+const reactBar = $('reactBar'), fx = $('fx');
+const pendingLocal = {}, pendingAt = {}, seenRx = {}, comboAt = {};
+let reactKey = '';
+function renderReactBar(list){
+  list = Array.isArray(list) && list.length ? list.slice(0, 6) : DEFAULT_REACTIONS;
+  const key = list.join('|');
+  if(key === reactKey) return;
+  reactKey = key;
+  reactBar.replaceChildren(...list.map(e => {
+    const b = mkBtn('', `React with ${e}`, 'rx'); b.dataset.e = e;
+    b.title = 'Tap or hold. Everyone sees it.';
+    const g = mkEl('span', '', e); g.setAttribute('aria-hidden', 'true');
+    const c = mkEl('span', 'cnt'); c.setAttribute('aria-hidden', 'true');
+    b.append(g, c);
+    // A tap reacts on release; a still hold reacts after 150 ms and then repeats 4×/s (up to 10 s).
+    // A touch that moves (a scroll across the bar) or is cancelled sends nothing.
+    let rep = null, wait = null, down = null;
+    const stop = () => { clearInterval(rep); clearTimeout(wait); rep = wait = null; down = null };
+    b.addEventListener('pointerdown', ev => {
+      if(ev.button > 0) return;
+      ev.preventDefault();
+      try{ b.setPointerCapture(ev.pointerId) }catch(err){}
+      stop();
+      down = {id:ev.pointerId, x:ev.clientX, y:ev.clientY, sent:false};
+      wait = setTimeout(() => {
+        wait = null; if(!down) return;
+        down.sent = true; react(e, b);
+        let n = 0;
+        rep = setInterval(() => { if(document.hidden || ++n > 40) stop(); else react(e, b) }, 250);
+      }, 150);
+    });
+    b.addEventListener('pointermove', ev => {
+      if(down && down.id === ev.pointerId && !down.sent && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 10) stop();
+    });
+    b.addEventListener('pointerup', ev => {
+      const tap = down && down.id === ev.pointerId && !down.sent;
+      stop();
+      if(tap) react(e, b);
+    });
+    ['pointercancel', 'lostpointercapture'].forEach(n => b.addEventListener(n, stop));
+    b.addEventListener('click', ev => { if(ev.detail === 0) react(e, b) });   // keyboard Enter/Space
+    b.addEventListener('contextmenu', ev => ev.preventDefault());
+    return b;
+  }));
+}
+renderReactBar(null);
+
+function react(e, btn){
+  if(reloadNeeded) return;
+  const now = Date.now();
+  if(now - (pendingAt[e] || 0) > 4000) pendingLocal[e] = 0;   // forget taps the server never counted
+  pendingLocal[e] = (pendingLocal[e] || 0) + 1; pendingAt[e] = now;
+  showReaction(e, 1);
+  post('/react', {e}, {quiet:true, timeout:4000});
+}
+function showReaction(e, n){
+  if(document.hidden || !n) return;
+  if(reduceMotion()){ bump(e, n); return }
+  for(let i = 0; i < n; i++){ if(i === 0) spawnFloat(e); else setTimeout(() => spawnFloat(e), i * 140) }
+}
+function spawnFloat(e){
+  if(document.hidden || fx.childElementCount >= 40) return;
+  const f = mkEl('span', 'fl'), inner = mkEl('span', '', e);
+  f.append(inner);
+  f.style.left = `calc(${(70 + Math.random() * 25).toFixed(1)}% - 15px)`;
+  f.style.setProperty('--rise', -Math.round((fx.clientHeight || 300) * 0.7) + 'px');
+  inner.style.setProperty('--wd', (0.8 + Math.random() * 0.6).toFixed(2) + 's');
+  inner.style.animationDelay = (-Math.random()).toFixed(2) + 's';
+  f.addEventListener('animationend', ev => { if(ev.target === f) f.remove() });
+  setTimeout(() => f.remove(), 4000);   // in case animationend never fires
+  fx.append(f);
+}
+// Reduced motion: no floating, just a counter badge on the button.
+function bump(e, n){
+  const btn = reactBar.querySelector(`[data-e="${cssEsc(e)}"]`); if(!btn) return;
+  const c = btn.querySelector('.cnt'), now = Date.now();
+  if(now - (btn._bumpAt || 0) > 1000) btn._bumpN = 0;
+  btn._bumpN = (btn._bumpN || 0) + n; btn._bumpAt = now;
+  c.textContent = btn._bumpN > 99 ? '99+' : String(btn._bumpN);
+  c.classList.add('on');
+  clearTimeout(btn._bt); btn._bt = setTimeout(() => c.classList.remove('on'), 1000);
+}
+function noteCombo(e, n, now){
+  const arr = seenRx[e] || (seenRx[e] = []);
+  arr.push([now, n]);
+  while(arr.length && now - arr[0][0] > 3000) arr.shift();
+  const total = arr.reduce((a, x) => a + x[1], 0);
+  if(total >= 12 && now - (comboAt[e] || 0) > 3000){ comboAt[e] = now; popCombo(e, total) }
+}
+function popCombo(e, total){
+  if(document.hidden) return;
+  fx.querySelector('.combo')?.remove();
+  const c = mkEl('div', 'combo' + (reduceMotion() ? ' still' : ''));
+  c.append(mkEl('span', '', e), mkEl('b', '', '×' + total));
+  fx.append(c);
+  setTimeout(() => c.remove(), 1250);
+}
+function handleReactions(st){
+  renderReactBar(st.room?.reactions);
+  const batches = st.reactions?.batches;
+  if(document.hidden) return;
+  if(skipRx){ skipRx = false; return }   // first poll after a hidden tab or a gap: those batches are old
+  if(!Array.isArray(batches)) return;
+  const now = Date.now();
+  for(const b of batches){
+    for(const [e, raw] of Object.entries(b?.c || {})){
+      const n = Math.max(0, Math.floor(+raw || 0)); if(!n) continue;
+      noteCombo(e, n, now);
+      // our own taps already floated locally, so only show the rest
+      const mine = pendingLocal[e] || 0;
+      const spawn = Math.max(0, Math.min(n, 6) - mine);
+      pendingLocal[e] = Math.max(0, mine - n);
+      if(spawn) showReaction(e, spawn);
+    }
+  }
+}
+
+/* ======================================================================
+ * 14. Peek: your own private zoom (wheel, pinch, double-tap, drag)
+ * ==================================================================== */
+const peekPill = $('peekPill');
+const pk = {s:1, tx:0, ty:0};
+const ptrs = new Map();
+let pinch = null, drag = null, lastTap = null, lastToggle = 0, lastZoomLevel = null;
+function applyPeek(anim){
+  const w = video.clientWidth || 1, h = video.clientHeight || 1;
+  pk.s = clamp(pk.s, 1, 4);
+  if(pk.s < 1.01){ pk.s = 1; pk.tx = 0; pk.ty = 0 }
+  pk.tx = clamp(pk.tx, w - w * pk.s, 0); pk.ty = clamp(pk.ty, h - h * pk.s, 0);
+  video.classList.toggle('peek-anim', !!anim);
+  video.style.transform = pk.s > 1 ? `translate(${pk.tx.toFixed(1)}px,${pk.ty.toFixed(1)}px) scale(${pk.s.toFixed(4)})` : '';
+  player.classList.toggle('peeking', pk.s > 1);
+  peekPill.hidden = pk.s <= 1;
+  if(pk.s > 1){
+    const z = fmtZoom(pk.s);
+    peekPill.replaceChildren(`🔍 Your view ${z} · `, mkEl('u', '', 'Reset'));
+    peekPill.setAttribute('aria-label', `Your private view is zoomed to ${z}. Only you see this. Reset`);
+  }
+}
+function resetPeek(anim){ pk.s = 1; pk.tx = 0; pk.ty = 0; applyPeek(anim) }
+function relPoint(e){ const r = player.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top} }
+function zoomAbout(p, ns, anim){
+  const cx = (p.x - pk.tx) / pk.s, cy = (p.y - pk.ty) / pk.s;
+  pk.s = clamp(ns, 1, 4); pk.tx = p.x - cx * pk.s; pk.ty = p.y - cy * pk.s;
+  applyPeek(anim);
+}
+function toggleDouble(p){
+  lastToggle = performance.now();
+  if(pk.s > 1.01) resetPeek(true); else zoomAbout(p, 2.5, true);
+}
+peekPill.onclick = () => resetPeek(true);
+
+video.addEventListener('wheel', e => {
+  const unit = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1;
+  const k = e.ctrlKey ? 1.01 : 1.0015;   // ctrlKey = trackpad pinch
+  const ns = clamp(pk.s * Math.pow(k, -e.deltaY * unit), 1, 4);
+  if(ns === pk.s && !e.ctrlKey) return;  // nothing to zoom: let the page scroll
+  e.preventDefault();
+  zoomAbout(relPoint(e), ns);
+}, {passive:false});
+
+const pinchGeom = () => {
+  const [a, b] = [...ptrs.values()];
+  return {d:Math.hypot(a.x - b.x, a.y - b.y) || 1, m:{x:(a.x + b.x) / 2, y:(a.y + b.y) / 2}};
+};
+video.addEventListener('pointerdown', e => {
+  if(e.button > 0) return;
+  ptrs.set(e.pointerId, {...relPoint(e), cx:e.clientX, cy:e.clientY});
+  try{ video.setPointerCapture(e.pointerId) }catch(err){}
+  if(ptrs.size === 2){
+    const g = pinchGeom();
+    pinch = {d:g.d, s:pk.s, cx:(g.m.x - pk.tx) / pk.s, cy:(g.m.y - pk.ty) / pk.s};
+    drag = null; lastTap = null;
+  }else if(ptrs.size === 1){
+    drag = {x:e.clientX, y:e.clientY, tx:pk.tx, ty:pk.ty, moved:false, t:performance.now(), type:e.pointerType, p:relPoint(e)};
+  }
+});
+video.addEventListener('pointermove', e => {
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, {...relPoint(e), cx:e.clientX, cy:e.clientY});
+  if(pinch && ptrs.size >= 2){
+    const g = pinchGeom();
+    pk.s = clamp(pinch.s * g.d / pinch.d, 1, 4);
+    pk.tx = g.m.x - pinch.cx * pk.s; pk.ty = g.m.y - pinch.cy * pk.s;
+    applyPeek();
+  }else if(drag){
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if(Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
+    if(pk.s > 1 && drag.moved){
+      pk.tx = drag.tx + dx; pk.ty = drag.ty + dy; applyPeek();
+      player.classList.add('dragging');
+    }
+  }
+});
+function endPtr(e){
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  player.classList.remove('dragging');
+  if(pinch){
+    if(ptrs.size < 2){
+      pinch = null; drag = null;
+      const rest = [...ptrs.values()][0];   // keep panning with the finger still down
+      if(rest) drag = {x:rest.cx, y:rest.cy, tx:pk.tx, ty:pk.ty, moved:true, t:0, type:'touch', p:rest};
+    }
+    return;
+  }
+  if(drag && e.type === 'pointerup' && !drag.moved && drag.type !== 'mouse' && performance.now() - drag.t < 300){
+    const now = performance.now(), p = drag.p;
+    if(lastTap && now - lastTap.t < 320 && Math.hypot(p.x - lastTap.p.x, p.y - lastTap.p.y) < 40){ lastTap = null; toggleDouble(p) }
+    else lastTap = {t:now, p};
+  }
+  drag = null;
+}
+['pointerup', 'pointercancel'].forEach(n => video.addEventListener(n, endPtr));
+video.addEventListener('dblclick', e => {
+  e.preventDefault();
+  if(performance.now() - lastToggle < 500) return;   // a touch double-tap already handled it
+  toggleDouble(relPoint(e));
+});
+video.addEventListener('transitionend', e => { if(e.propertyName === 'transform') video.classList.remove('peek-anim') });
+
+if(typeof ResizeObserver === 'function'){
+  new ResizeObserver(es => {
+    for(const e of es) player.classList.toggle('compact', e.contentRect.width < 600);
+    applyPeek();
+  }).observe(player);
+}
+function handlePeekState(st){
+  const lvl = st.zoom?.level;
+  if(typeof lvl !== 'number') return;
+  if(lastZoomLevel !== null && lvl !== lastZoomLevel && pk.s > 1) resetPeek(true);   // the shared picture changed
+  lastZoomLevel = lvl;
+}
+
+/* ======================================================================
+ * 15. Postcard: the frame you see (Peek included) on a card, to download or share
+ * ==================================================================== */
+const pcBtn = $('pcBtn'), pcDialog = $('pcDialog'), pcImg = $('pcImg');
+const pcShare = $('pcShare'), pcDownload = $('pcDownload'), pcClose = $('pcClose'), flashEl = $('flash');
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let pcUrl = null, pcBusy = false;
+const p2 = n => String(n).padStart(2, '0');
+const slug = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'camlive';
+
+function shutter(){
+  const ac = actx;
+  if(!ac || ac.state !== 'running') return;
+  try{
+    const len = Math.floor(ac.sampleRate * 0.06), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2000;
+    const g = ac.createGain(); g.gain.value = 0.15;
+    src.connect(hp); hp.connect(g); g.connect(ac.destination); src.start();
+  }catch(e){}
+}
+function flash(){ flashEl.classList.remove('go'); void flashEl.offsetWidth; flashEl.classList.add('go') }
+
+// The visible Peek region in video pixels, cropped to the card's 1520:855 photo.
+function sourceRect(){
+  const vw = video.videoWidth, vh = video.videoHeight, w = video.clientWidth || 1, h = video.clientHeight || 1;
+  const f = Math.min(w / vw, h / vh), ox = (w - vw * f) / 2, oy = (h - vh * f) / 2;   // object-fit: contain
+  const x0 = -pk.tx / pk.s, y0 = -pk.ty / pk.s, x1 = x0 + w / pk.s, y1 = y0 + h / pk.s;
+  let sx = clamp((x0 - ox) / f, 0, vw), sy = clamp((y0 - oy) / f, 0, vh);
+  let sw = clamp((x1 - ox) / f, 0, vw) - sx, sh = clamp((y1 - oy) / f, 0, vh) - sy;
+  const A = 1520 / 855;
+  if(sw / sh > A){ const nw = sh * A; sx += (sw - nw) / 2; sw = nw } else { const nh = sw / A; sy += (sh - nh) / 2; sh = nh }
+  return {sx, sy, sw, sh};
+}
+function fitText(g, text, maxW){
+  if(g.measureText(text).width <= maxW) return text;
+  let t = text;
+  while(t.length > 1 && g.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+
+async function postcard(){
+  if(pcBusy) return;
+  cancelMotion(true);   // a key held while the dialog opens would never see its release
+  if(video.readyState < 2 || !video.videoWidth || !video.videoHeight){ toast('Postcards need the video to be playing.'); return }
+  pcBusy = true;
+  try{
+    const st = S.state || {}, room = st.room || {};
+    const W = 1600, H = 1040, c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fbf7ef'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#e8dfcf'; g.fillRect(36, 36, 1528, 863);
+    const r = sourceRect();
+    g.drawImage(video, r.sx, r.sy, r.sw, r.sh, 40, 40, 1520, 855);
+    g.getImageData(40, 40, 1, 1);   // throws SecurityError if the canvas is tainted
+    flash(); shutter();
+    // right block: camera-local date, who was watching, signature
+    const d = cameraDate();
+    const dateStr = `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${d.getUTCFullYear()} · ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+    const count = st.viewers?.count | 0;
+    const flags6 = (st.flags?.today || []).filter(isCC).slice(0, 6).map(flag).join('');
+    const seen = (count > 1 ? `seen live with ${count} people` : 'seen live') + (flags6 ? ' ' + flags6 : '');
+    const lines = [dateStr, seen, `— ${displayName()}`];
+    g.font = '22px system-ui, -apple-system, "Segoe UI", sans-serif';
+    g.fillStyle = '#6b5b4b'; g.textAlign = 'right'; g.textBaseline = 'alphabetic';
+    const rw = Math.min(640, Math.max(...lines.map(l => g.measureText(l).width)));
+    lines.forEach((l, i) => g.fillText(fitText(g, l, 640), W - 40, 944 + i * 32));
+    // left: "Greetings from …" in a postcard script
+    const place = room.place || room.name || 'camlive';
+    const greet = `Greetings from ${place}`;
+    const maxW = W - 80 - rw - 48;
+    let size = 44;
+    const scriptFont = px => `italic 600 ${px}px 'Snell Roundhand','Segoe Script','Brush Script MT',cursive`;
+    g.font = scriptFont(size);
+    while(size > 26 && g.measureText(greet).width > maxW){ size -= 2; g.font = scriptFont(size) }
+    g.textAlign = 'left'; g.fillStyle = '#3a2f25';
+    g.fillText(fitText(g, greet, maxW), 44, 984);
+    const blob = await new Promise((res, rej) => { try{ c.toBlob(res, 'image/jpeg', 0.9) }catch(e){ rej(e) } });
+    if(!blob) throw new Error('empty');
+    const name = `${slug(room.name)}-${d.getUTCFullYear()}${p2(d.getUTCMonth() + 1)}${p2(d.getUTCDate())}-${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}.jpg`;
+    openPostcard(blob, name, `Postcard: greetings from ${place}, ${dateStr}`, room.name || document.title);
+  }catch(e){
+    toast('Postcards need the video to be playing.');
+  }finally{
+    pcBusy = false;
+  }
+}
+function openPostcard(blob, name, alt, title){
+  if(pcUrl) URL.revokeObjectURL(pcUrl);
+  pcUrl = URL.createObjectURL(blob);
+  let file = null;
+  try{ file = new File([blob], name, {type:'image/jpeg'}) }catch(e){}
+  let canShare = false;
+  try{ canShare = !!(file && navigator.canShare && navigator.canShare({files:[file]})) }catch(e){}
+  pcImg.src = pcUrl; pcImg.alt = alt;
+  pcShare.hidden = !canShare;
+  pcShare.onclick = async () => {
+    try{ await navigator.share({files:[file], title}) }
+    catch(e){ if(!e || e.name !== 'AbortError') toast("Couldn't share it. Try Download instead.") }
+  };
+  pcDownload.onclick = () => {
+    const a = document.createElement('a'); a.href = pcUrl; a.download = name;
+    document.body.append(a); a.click(); a.remove();
+  };
+  if(typeof pcDialog.showModal === 'function'){ if(!pcDialog.open) pcDialog.showModal() }
+  else pcDialog.setAttribute('open', '');
+  pcDownload.focus();
+}
+function closePostcard(){
+  if(typeof pcDialog.close === 'function'){ if(pcDialog.open) pcDialog.close() }
+  else pcDialog.removeAttribute('open');
+}
+pcClose.onclick = closePostcard;
+pcDialog.addEventListener('click', e => { if(e.target === pcDialog) closePostcard() });   // backdrop
+pcDialog.addEventListener('close', () => { const u = pcUrl; pcUrl = null; if(u) setTimeout(() => URL.revokeObjectURL(u), 2000) });
+// keys typed inside the dialog must not steer the camera or zoom
+pcDialog.addEventListener('keydown', e => { if(e.key !== 'Escape') e.stopPropagation() });
+pcDialog.addEventListener('keyup', e => e.stopPropagation());
+pcBtn.onclick = postcard;
+// Report weed: the server grabs its own latest frame and files it with Kulavazha Radar.
+const rwBtn = $('rwBtn');
+let rwBusy = false;
+rwBtn.onclick = async () => {
+  if(rwBusy) return;
+  rwBusy = true; rwBtn.disabled = true;
+  try{
+    const r = await post('/report-weed', {}, {timeout:15000});
+    if(r.ok){ flash(); shutter(); toast('🌿 Reported to Kulavazha Radar. Thank you!') }
+  }finally{ rwBusy = false; setTimeout(() => { rwBtn.disabled = false }, 3000) }
+};
+
+addEventListener('keydown', e => {
+  if(e.repeat || typing() || e.ctrlKey || e.metaKey || e.altKey || pcDialog.open) return;
+  if(e.key === 'p' || e.key === 'P'){ e.preventDefault(); postcard() }
+  else if(e.key === 'Escape'){
+    if(pk.s > 1) resetPeek(true);
+    closeModMenus();
+  }
+});
+
+/* ======================================================================
+ * 16. Owner tools (only when me.is_owner): strip, message menu, viewer mute
+ * ==================================================================== */
+const ownerStrip = $('ownerStrip'), oTake = $('oTake'), oKick = $('oKick'), oLock = $('oLock'), oSlow = $('oSlow');
+let wasOwner = false, ownerChecked = false, oBusy = false, slowTouched = 0;
+const MUTE_LABEL = {10:'10 min', 60:'1 hour', 1440:'a day'};
+
+function renderOwner(st){
+  const owner = !!st.me?.is_owner;
+  if(!ownerChecked){
+    ownerChecked = true;
+    if(ownerKey && !owner){
+      // stop sending a key that doesn't work (it only counts toward the lockout)
+      ownerKey = '';
+      toast("That owner link didn't work here.", {ms:10000, action:{label:'Forget it', fn:() => { lsSet('camlive_owner_key', ''); toast('Owner key removed.') }}});
+    }
+  }
+  if(owner !== wasOwner){
+    wasOwner = owner;
+    for(const d of log.querySelectorAll('.m:not(.sys)')){
+      if(owner){ if(d._msg) addModMenu(d, d._msg) }
+      else d.querySelector('.mod')?.remove();
+    }
+  }
+  ownerStrip.hidden = !owner;
+  if(!owner) return;
+  const s = st.seat || {};
+  const locked = s.mode === 'locked';
+  oLock.textContent = locked ? '🔓 Unlock controls' : '🔒 Lock controls';
+  oLock.setAttribute('aria-pressed', String(locked));
+  oTake.disabled = s.you === 'driver';
+  // /mod/kick also ends an offered turn (the server skips to the next person in line)
+  oKick.disabled = !((s.mode === 'driving' || s.mode === 'offered') && s.driver && !s.driver.owner && s.you !== 'driver');
+  oKick.title = oKick.disabled ? 'Nobody else is driving' : `End ${s.driver?.name || 'the driver'}'s turn`;
+  if(document.activeElement !== oSlow && Date.now() - slowTouched > 3000){
+    const v = String(st.chat?.slow_s | 0);
+    if([...oSlow.options].some(o => o.value === v) && oSlow.value !== v) oSlow.value = v;
+  }
+}
+async function ownerCall(path, body, okMsg){
+  if(oBusy) return null;
+  oBusy = true;
+  const r = await post(path, body);
+  oBusy = false;
+  if(r.data?.seat) applySeat(r.data.seat);
+  if(r.ok && okMsg) toast(okMsg);
+  if(S.state) renderOwner(S.state);
+  refresh();
+  return r;
+}
+oTake.onclick = () => { ownerCall('/mod/take', {}, "You've got the wheel, with no time limit. Pass it when you're done.") };
+oKick.onclick = () => { ownerCall('/mod/kick', {}) };
+oLock.onclick = () => { ownerCall('/mod/lock', {locked:S.state?.seat?.mode !== 'locked'}) };
+oSlow.onchange = () => { slowTouched = Date.now(); ownerCall('/mod/slowmode', {seconds:+oSlow.value || 0}) };
+
+function closeModMenus(except){
+  for(const m of log.querySelectorAll('.mod-menu')){
+    if(m === except) continue;
+    m.hidden = true; m.parentElement?.querySelector('.tog')?.setAttribute('aria-expanded', 'false');
+  }
+}
+function addModMenu(d, m){
+  if(d.querySelector('.mod') || typeof m.id !== 'number') return;
+  const wrap = mkEl('span', 'mod'), menu = mkEl('span', 'mod-menu');
+  menu.hidden = true;
+  const tog = mkBtn('⋯', `Moderate ${m.name}'s message`, 'tog');
+  tog.setAttribute('aria-expanded', 'false');
+  const del = mkBtn('🗑', 'Delete this message', 'del');
+  del.onclick = async () => { const r = await post('/mod/delete', {id:m.id}); if(r.ok){ d.remove(); toast('Message deleted.') } };
+  menu.append(del);
+  if(!m.owner){
+    for(const [min, txt] of [[10, '🔇 10m'], [60, '🔇 1h']]){
+      const b = mkBtn(txt, `Mute ${m.name} for ${MUTE_LABEL[min]}`);
+      b.onclick = () => { closeModMenus(); modMute({id:m.id}, min, m.name) };
+      menu.append(b);
+    }
+    const un = mkBtn('🔈', `Unmute ${m.name}`);
+    un.onclick = () => { closeModMenus(); modMute({id:m.id}, 0, m.name) };
+    menu.append(un);
+  }
+  tog.onclick = () => {
+    const open = menu.hidden;
+    closeModMenus(menu);
+    menu.hidden = !open; tog.setAttribute('aria-expanded', String(open));
+    if(open) del.focus();
+  };
+  wrap.append(menu, tog);
+  d.prepend(wrap);
+}
+async function modMute(target, minutes, name){
+  const r = await post('/mod/mute', {...target, minutes});
+  if(r.ok) toast(minutes ? `${name} is muted for ${MUTE_LABEL[minutes] || minutes + ' min'}.` : `${name} can talk again.`);
+  viewersKey = ''; refresh();
+}
+function addViewerMute(li, x){
+  if(muteMenuTag === x.tag){
+    const box = mkEl('span', 'vmenu');
+    for(const [min, txt] of [[10, '10m'], [60, '1h'], [1440, '1d']]){
+      const b = mkBtn(txt, `Mute ${x.name} for ${MUTE_LABEL[min]}`);
+      b.dataset.focusKey = `mute:${x.tag}:${min}`;
+      b.onclick = () => { muteMenuTag = null; modMute({tag:x.tag}, min, x.name || 'Guest') };
+      box.append(b);
+    }
+    const no = mkBtn('✕', 'Cancel');
+    no.dataset.focusKey = `mute:${x.tag}:x`;
+    no.onclick = () => { muteMenuTag = null; viewersKey = ''; renderViewers(S.state); focusKey(`mute:${x.tag}`) };
+    box.append(no);
+    li.append(box);
+  }else{
+    const b = mkBtn('🔇', `Mute ${x.name || 'this viewer'}`, 'vmute');
+    b.dataset.focusKey = `mute:${x.tag}`;
+    b.onclick = () => { muteMenuTag = x.tag; viewersKey = ''; renderViewers(S.state); focusKey(`mute:${x.tag}:10`) };
+    li.append(b);
+  }
+}
+function focusKey(k){ viewerList.querySelector(`[data-focus-key="${cssEsc(k)}"]`)?.focus() }
+
+/* ----- wire the fun layer into every /state ----- */
+onState(st => {
+  renderRoom(st);
+  handleReactions(st);
+  handlePeekState(st);
+  renderOwner(st);
+});
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){ fx.replaceChildren(); for(const k in pendingLocal) pendingLocal[k] = 0 }
+});
+Object.assign(Cam, {react, postcard, resetPeek, peek:() => ({...pk})});
+
+tick();
+</script></body></html>

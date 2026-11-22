@@ -1,0 +1,102 @@
+#!/bin/sh
+# camlivectl: run camlive under launchd (LaunchDaemons) and look after it.
+#   install                    copy the plists to /Library/LaunchDaemons and start both (asks for sudo)
+#   start|stop|restart [svc]   svc = server (default) | tunnel | all
+#   status                     launchd state plus the local /healthz
+#   logs                       follow the server log
+#   url                        the current public (quick tunnel) URL
+#   dev                        dev instance in the foreground: port 8766, test video, fake PTZ
+set -eu
+
+DIR=$(cd "$(dirname "$0")" && pwd)
+LOGS="$HOME/Library/Logs/camlive"
+DAEMONS=/Library/LaunchDaemons
+PORT=8765
+
+services() {
+  case "${1:-server}" in
+    server) echo com.camlive.server ;;
+    tunnel) echo com.camlive.tunnel ;;
+    all) echo com.camlive.server com.camlive.tunnel ;;
+    *) echo "unknown service: $1 (server|tunnel|all)" >&2; exit 2 ;;
+  esac
+}
+
+loaded() { launchctl print "system/$1" >/dev/null 2>&1; }
+
+checklist() {
+  cat <<'EOF'
+
+Owner checklist (do these once):
+  - Give the camera a DHCP reservation in the router, so its address never changes.
+  - Change the camera password to 16-20 random letters and digits, then update camlive.toml.
+  - Turn off the camera's P2P / UPnP features.
+  - System Settings > General > Software Update > Automatic updates: turn off
+    "Install macOS updates" (keep "Install Security Responses and system files").
+  - Keep the Mac on power with the lid open, or run: sudo pmset -a disablesleep 1
+  - The quick-tunnel URL changed with this install: post the new link (./camlivectl url) where you shared the old one.
+EOF
+}
+
+cmd=${1:-help}
+case "$cmd" in
+  install)
+    mkdir -p "$LOGS"
+    if [ ! -f "$DIR/camlive.toml" ]; then
+      echo "camlive.toml is missing: copy camlive.example.toml and fill in [camera] first" >&2; exit 1
+    fi
+    chmod 600 "$DIR/camlive.toml"
+    echo "Stop the hand-started ptz_server.py and cloudflared first, or the new ones cannot bind."
+    for s in com.camlive.server com.camlive.tunnel; do
+      if loaded "$s"; then sudo launchctl bootout "system/$s" || true; fi
+      sudo cp "$DIR/deploy/$s.plist" "$DAEMONS/$s.plist"
+      sudo chown root:wheel "$DAEMONS/$s.plist"
+      sudo chmod 644 "$DAEMONS/$s.plist"
+      sudo launchctl bootstrap system "$DAEMONS/$s.plist"
+      echo "installed and started $s"
+    done
+    echo "Waiting for the tunnel URL..."
+    sleep 15
+    [ -f "$LOGS/current_url.txt" ] && echo "Public URL: $(cat "$LOGS/current_url.txt")" \
+      || echo "No URL yet: run ./camlivectl url in a minute."
+    checklist
+    ;;
+  start)
+    for s in $(services "${2:-all}"); do
+      if loaded "$s"; then sudo launchctl kickstart "system/$s"
+      else sudo launchctl bootstrap system "$DAEMONS/$s.plist"; fi
+    done
+    ;;
+  stop)
+    for s in $(services "${2:-all}"); do
+      if loaded "$s"; then sudo launchctl bootout "system/$s"; fi
+    done
+    ;;
+  restart)
+    for s in $(services "${2:-server}"); do sudo launchctl kickstart -k "system/$s"; done
+    ;;
+  status)
+    for s in com.camlive.server com.camlive.tunnel; do
+      if loaded "$s"; then
+        printf '%s: ' "$s"; launchctl print "system/$s" | awk -F'= ' '/^\tstate =/ {print $2}'
+      else
+        echo "$s: not loaded"
+      fi
+    done
+    echo "healthz:"; curl -s --max-time 3 "http://127.0.0.1:$PORT/healthz" || echo "(server not answering)"
+    echo
+    ;;
+  logs)
+    exec tail -n 100 -F "$LOGS/camlive.log"
+    ;;
+  url)
+    cat "$LOGS/current_url.txt"
+    ;;
+  dev)
+    cd "$DIR"
+    CAMLIVE_PORT=8766 CAMLIVE_SOURCE=test CAMLIVE_PTZ=fake exec /opt/homebrew/bin/python3 -u ptz_server.py
+    ;;
+  *)
+    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac
