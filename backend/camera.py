@@ -6,6 +6,7 @@ browser polling /api/cam gets it instantly (no ffmpeg spawn per request).
 CAM_URL can be:
   rtsp://user:pass@IP:554/cam/realmonitor?channel=1&subtype=1   (CP Plus / Dahua RTSP)
   http://user:pass@IP/cgi-bin/snapshot.cgi                       (Dahua snapshot, digest auth)
+  http://127.0.0.1:8765/hls/live.m3u8                            (PayalCam's HLS restream of the CP Plus)
   /path/to/video.mp4                                             (looped, for rehearsal)
 CAM_URL is re-read from .env when it changes, so no server restart is needed.
 """
@@ -72,7 +73,9 @@ async def _ffmpeg_loop(url: str) -> None:
         args = [ffmpeg, "-hide_banner", "-loglevel", "error"]
         if url.startswith("rtsp"):
             args += ["-rtsp_transport", "tcp", "-timeout", "5000000"]
-        elif not url.startswith("http"):
+        elif url.startswith("http"):
+            args += ["-reconnect", "1", "-reconnect_streamed", "1"]  # live HLS / MJPEG over http
+        else:
             args += ["-re", "-stream_loop", "-1"]  # local file: play in real time, loop
         args += ["-i", url, "-an", "-vf", "fps=1,scale=640:-2", "-q:v", "5", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1"]
         proc = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -103,13 +106,19 @@ async def _ffmpeg_loop(url: str) -> None:
         await asyncio.sleep(3)
 
 
+def _is_stream(url: str) -> bool:
+    """HLS / MJPEG / video URLs go through ffmpeg; plain http(s) URLs are treated as JPEG snapshots."""
+    path = urlsplit(url).path.lower()
+    return path.endswith((".m3u8", ".mjpg", ".mjpeg", ".mp4", ".ts"))
+
+
 def ensure_running() -> str:
     """Start (or restart, if CAM_URL changed) the grabber. Returns the URL in use."""
     url = current_url()
     if url != STATE["url"]:
         STATE.update(url=url, jpeg=b"", ts=0.0, error="")
         if url:
-            loop = _snapshot_loop if url.startswith("http") else _ffmpeg_loop
+            loop = _snapshot_loop if url.startswith("http") and not _is_stream(url) else _ffmpeg_loop
             STATE["task"] = asyncio.get_event_loop().create_task(loop(url))
     return url
 
