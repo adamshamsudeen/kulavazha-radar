@@ -145,12 +145,12 @@ async function submitReport({ audio, mime, text, demo, remote }) {
     let transcript, translation, ext, reporter = "Voice report", gps = null, fixed = null;
     if (remote) {
       // Report arrived from a boatman's phone (already processed by Sarvam on that request).
-      step("stt", "done", remote.timings?.stt_ms ? `${remote.timings.stt_ms} ms` : "phone");
+      step("stt", "done", remote.source === "call" ? "Samvaad call" : remote.timings?.stt_ms ? `${remote.timings.stt_ms} ms` : "phone");
       step("llm", "done", remote.timings?.llm_ms ? `${remote.timings.llm_ms} ms` : "phone");
       step("tr", remote.translation ? "done" : "skip", remote.translation ? "via 105B" : "");
       transcript = remote.transcript; translation = remote.translation; ext = remote.extraction || {};
       if (remote.source === "payalcam" && !ext.area_m2) ext = { ...ext, size: "small", area_m2: camArea("🌿") };
-      reporter = `${{ camera: "📹", payalcam: "🌿" }[remote.source] || "📱"} ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
+      reporter = `${{ camera: "📹", payalcam: "🌿", call: "📞" }[remote.source] || "📱"} ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
       if (remote.photo) pendingPhoto = { thumb: remote.photo, green: remote.green };
     } else if (state.mode === "demo" || demo) {
       const d = demo || DEMO_REPORTS[state.demoIdx++ % DEMO_REPORTS.length];
@@ -566,7 +566,7 @@ async function pollFeed() {
   if (!feedBusy && feedQueue.length) {
     feedBusy = true;
     const it = feedQueue.shift();
-    toast(it.source === "camera" ? `📹 ${it.reporter} auto-report` : it.source === "payalcam" ? `🌿 ${it.reporter} reported from the live cam` : `📱 New report from ${it.reporter}`);
+    toast(it.source === "camera" ? `📹 ${it.reporter} auto-report` : it.source === "payalcam" ? `🌿 ${it.reporter} reported from the live cam` : it.source === "call" ? `📞 ${it.reporter} reported by phone call` : `📱 New report from ${it.reporter}`);
     await submitReport({ remote: it });
     feedBusy = false;
   }

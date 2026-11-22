@@ -22,7 +22,7 @@ app = FastAPI(title="Kulavazha Radar", description="Voice-first water hyacinth r
 import collections
 from fastapi import Request
 
-PAID = {"/api/report", "/api/tts", "/api/translate", "/api/slip", "/api/brief", "/api/converse", "/api/feed"}
+PAID = {"/api/report", "/api/tts", "/api/translate", "/api/slip", "/api/brief", "/api/converse", "/api/feed", "/api/phone-report"}
 PER_IP_PER_MIN = int(__import__("os").environ.get("RATE_PER_MIN", "20"))
 TOTAL_PER_HOUR = int(__import__("os").environ.get("RATE_TOTAL_PER_HOUR", "600"))
 _hits: dict = collections.defaultdict(collections.deque)
@@ -265,6 +265,73 @@ async def feed_post(item: dict):
     }
     FEED["items"] = (FEED["items"] + [clean])[-200:]
     return {"ok": True, "seq": clean["seq"]}
+
+
+# 7b. Phone call report: a Sarvam Samvaad voice agent calls this tool mid-call -----------------
+class PhoneReportIn(BaseModel):
+    place: str | None = None        # where the weed is, as the caller said it (Malayalam or English)
+    size: str | None = None         # how big, as the caller said it
+    blocking: bool | str | None = None
+    transcript: str | None = None   # optional: full call transcript so far
+    caller: str | None = None       # optional: caller phone number (Samvaad "User Identifier")
+    interaction_id: str | None = None
+
+
+def _mask(num: str | None) -> str:
+    d = "".join(c for c in (num or "") if c.isdigit())
+    return f"xxxxxx{d[-4:]}" if len(d) >= 4 else ""
+
+
+@app.post("/api/phone-report")
+async def phone_report(body: PhoneReportIn, request: Request):
+    token = __import__("os").environ.get("PHONE_REPORT_TOKEN", "")
+    if token and request.headers.get("x-api-key") != token and request.query_params.get("key") != token:
+        return JSONResponse({"error": "bad key"}, status_code=401)
+    if body.interaction_id and any(i.get("call_id") == body.interaction_id for i in FEED["items"]):
+        return {"ok": True, "duplicate": True, "reply_ml": "ഈ റിപ്പോർട്ട് ഇതിനകം കിട്ടി. നന്ദി."}
+    parts = []
+    if body.place:
+        parts.append(f"സ്ഥലം: {body.place}.")
+    if body.size:
+        parts.append(f"വലിപ്പം: {body.size}.")
+    if str(body.blocking).lower() in ("true", "yes", "1", "അതെ"):
+        parts.append("ബോട്ടുകൾക്ക് പോകാൻ പറ്റുന്നില്ല.")
+    summary = " ".join(parts) or (body.transcript or "").strip()
+    if not summary:
+        return JSONResponse({"error": "Need place or size", "reply_ml": "സ്ഥലം ഒന്നുകൂടി പറയാമോ?"}, status_code=400)
+    text = summary + (f"\n\nCall transcript: {body.transcript.strip()[:1500]}" if body.transcript and parts else "")
+    t0 = time.perf_counter()
+    extraction = await extract_report(text) if config.SARVAM_API_KEY else {
+        "place_id": None, "size": "medium", "blocking": False, "source": "no-key"}
+    from .extract import heuristic_place
+    if not extraction.get("place_id"):
+        extraction["place_id"] = heuristic_place(text)
+    if str(body.blocking).lower() in ("true", "yes", "1"):
+        extraction["blocking"] = True
+    timings = {"llm_ms": ms_since(t0)}
+    translation = extraction.get("translation")
+    if not translation and config.SARVAM_API_KEY:
+        try:
+            translation = await sarvam.translate(summary, "en-IN", "ml-IN")
+        except Exception:
+            translation = None
+    FEED["seq"] += 1
+    item = {
+        "seq": FEED["seq"], "ts": int(time.time() * 1000),
+        "reporter": f"Phone caller {_mask(body.caller)}".strip(),
+        "transcript": summary[:1000], "translation": translation, "extraction": extraction,
+        "photo": None, "green": None, "gps": None, "timings": timings, "source": "call",
+        "call_id": (body.interaction_id or "")[:80] or None,
+    }
+    FEED["items"] = (FEED["items"] + [item])[-200:]
+    place = next((p for p in config.PLACES if p["id"] == extraction.get("place_id")), None)
+    where = place["ml"] if place else (body.place or "കായലിൽ")
+    return {
+        "ok": True, "seq": item["seq"], "place_id": extraction.get("place_id"),
+        "place_en": place["en"] if place else None, "size": extraction.get("size"),
+        "blocking": bool(extraction.get("blocking")),
+        "reply_ml": f"നന്ദി. {where} ഭാഗത്തെ കുളവാഴ റഡാറിൽ രേഖപ്പെടുത്തി. ഫെറി ജീവനക്കാർക്ക് മുന്നറിയിപ്പ് പോകും.",
+    }
 
 
 # 8. Weed Watch camera (CP Plus or any RTSP / snapshot URL; laptop only) ---------------------
