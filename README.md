@@ -3,7 +3,7 @@
 Voice-first water hyacinth (kulavazha) radar for Vembanad Lake, built on **Sarvam AI**.
 A data layer for turning a nuisance weed into paid harvest work and MushPellets mushroom substrate.
 
-**📊 Presentation:** [pitch deck (PDF)](docs/pitch/kulavazha-radar-pitch-deck.pdf) · [PowerPoint](docs/pitch/kulavazha-radar-pitch-deck.pptx) · [pitch script](docs/pitch/pitch-script.md)
+**📊 Presentation:** [pitch deck (PDF)](docs/pitch/kulavazha-radar-pitch-deck.pdf) · [PowerPoint](docs/pitch/kulavazha-radar-pitch-deck.pptx)
 
 **Live demo**
 - Render: https://kulavazha-radar.onrender.com (free tier, so the first visit can take about a minute to wake)
