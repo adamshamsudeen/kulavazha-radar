@@ -2436,7 +2436,7 @@ def radar_item(name, jpeg):
         "reporter": f"PayalCam viewer {name}"[:60], "source": "payalcam",
         "transcript": f"പായൽക്യാം: {place} ഭാഗത്ത് കുളവാഴക്കൂട്ടം കണ്ടു",
         "translation": f"PayalCam viewer {name} spotted a hyacinth mat on the live camera at {place}.",
-        "extraction": {"place_id": RADAR.get("place_id") or "punnamada", "size": "medium", "blocking": False},
+        "extraction": {"place_id": RADAR.get("place_id") or "punnamada", "size": "small", "area_m2": 5, "blocking": False},
         "photo": "data:image/jpeg;base64," + base64.b64encode(jpeg).decode() if jpeg else None,
     }
 

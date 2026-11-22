@@ -149,6 +149,7 @@ async function submitReport({ audio, mime, text, demo, remote }) {
       step("llm", "done", remote.timings?.llm_ms ? `${remote.timings.llm_ms} ms` : "phone");
       step("tr", remote.translation ? "done" : "skip", remote.translation ? "via 105B" : "");
       transcript = remote.transcript; translation = remote.translation; ext = remote.extraction || {};
+      if (remote.source === "payalcam" && !ext.area_m2) ext = { ...ext, size: "small", area_m2: camArea("🌿") };
       reporter = `${{ camera: "📹", payalcam: "🌿" }[remote.source] || "📱"} ${remote.reporter}`; gps = remote.gps; fixed = remote.fixed || (remote.source === "camera" && remote.gps) || null;
       if (remote.photo) pendingPhoto = { thumb: remote.photo, green: remote.green };
     } else if (state.mode === "demo" || demo) {
@@ -535,7 +536,23 @@ function geolocate() {
   });
 }
 function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state.reports.map(({ audio, ...r }) => r))); } catch {} }
-function load() { try { state.reports = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { state.reports = []; } }
+function load() {
+  try { state.reports = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { state.reports = []; }
+  // Older camera / live-cam pins used the 600 m² "medium" mat; re-estimate them from what the camera saw.
+  let fixed = 0;
+  for (const r of state.reports) {
+    if (r.camFix !== 2 && /^(📹|🌿)/.test(r.reporter || "")) { r.size = "small"; r.est = estimate(camArea(r.reporter, r.green)); r.camFix = 2; fixed++; }
+  }
+  if (fixed) save();
+}
+/* A camera sees only the water near the boat: about CAM_VIEW_M2 m² inside the lake box.
+   Visible mat area = that × the green fraction, so 30% cover ≈ 8 m² ≈ 150 kg wet. A PayalCam viewer's
+   tap has no measurement, so it counts as a small patch (5 m² ≈ 100 kg). */
+const CAM_VIEW_M2 = 25;
+function camArea(reporter, green) {
+  if (/^🌿/.test(reporter || "")) return 5;
+  return Math.max(2, Math.round(((green ?? 25) / 100) * CAM_VIEW_M2));
+}
 
 /* ---------------- Live feed from phones ---------------- */
 let feedSeq = null, feedQueue = [], feedBusy = false;
@@ -691,13 +708,13 @@ async function camReport(src, cover) {
   const flash = $("#camFlash"); flash.hidden = false; flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
   setTimeout(() => (flash.hidden = true), 4000);
   if (!CAM.reporter) return;
-  const size = cover > 70 ? "huge" : cover > 50 ? "large" : "medium";
+  const size = "small";                                  // a window camera sees a patch, not a lake-wide mat
   const p = PLACES.find((x) => x.id === CAM.place) || PLACES[0];
   toast(`📹 Weed Watch camera: ${cover}% hyacinth cover near ${p.en}. Auto-reporting.`, true);
   const item = { reporter: "Weed Watch camera", source: "camera",
     transcript: `ക്യാമറ: ${p.ml} ഭാഗത്ത് ${SIZES[size].ml} കുളവാഴക്കൂട്ടം (${cover}% പച്ച)`,
     translation: `Camera: ${SIZES[size].en.toLowerCase()} hyacinth mat detected near ${p.en} (${cover}% of the lake in view).`,
-    extraction: { place_id: p.id, size, blocking: false }, photo: thumb, green: cover, gps: CAM.fixed };
+    extraction: { place_id: p.id, size, blocking: false, area_m2: camArea("📹", cover) }, photo: thumb, green: cover, gps: CAM.fixed };
   // Share with every screen and phone via the live feed; this screen skips its own item.
   fetch("api/feed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(item) })
     .then((r) => r.json()).then((j) => { if (j.seq) ownFeedSeqs.add(j.seq); }).catch(() => {});
