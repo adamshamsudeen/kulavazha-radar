@@ -7,6 +7,7 @@ A data layer for turning a nuisance weed into paid harvest work and MushPellets 
 - Render: https://kulavazha-radar.onrender.com (free tier, so the first visit can take about a minute to wake)
 - Laptop tunnel during HackaThoni 2026: https://par-millennium-also-missions.trycloudflare.com (temporary)
 - Phone reporting page: add `/report.html`. Houseboat Translator: add `/translator.html`.
+- Live lake camera (PayalCam, CP Plus at Punnamada): https://leo-tmp-numbers-fisheries.trycloudflare.com (temporary). Tap 🌿 Report weed to send the view to the radar.
 
 **Why:** on 3 Sep 2026 the Muhamma–Kumarakom ferry was stranded mid-lake for hours after kulavazha jammed its propeller (Onmanorama reported it happens almost daily). Nobody tracks where the mats are or where they will drift, and the people who see them first, boatmen and fishers, speak Malayalam, not English forms.
 
@@ -28,7 +29,8 @@ All calls live in `backend/sarvam.py`.
 ## Beyond the screen
 - **Voice first:** the phone page is one big talk button; no typing, no English.
 - **Hands-free:** Space toggles the mic, so a foot pedal, an EMG "clench" switch or any keyboard can be the talk button while hands stay on the oar or the net.
-- **Camera that reports by itself:** a houseboat CCTV (CP Plus / RTSP) files a report when green mat cover stays above a threshold (30% by default, set with `?thr=`).
+- **Camera that reports by itself:** a CP Plus camera on the houseboat (via PayalCam or RTSP) files a report with a highlighted snapshot when green mat cover stays above a threshold for 3 frames (30% by default; set it in the tile's Camera setup or with `?thr=`). It pauses at night and in glare, and won't report the same mat twice.
+- **Anyone can report from the live cam:** PayalCam viewers tap 🌿 Report weed next to 📸 Postcard.
 - **Spoken replies:** reporters and ferry crews hear Malayalam back from Bulbul, not a notification.
 - **Saved when offline:** reports made with no signal are kept on the phone and sent when it reconnects.
 
