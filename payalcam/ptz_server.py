@@ -2416,13 +2416,13 @@ def report_allowed(ip, now=None):
 
 
 def latest_frame_jpeg(width=480):
-    """A JPEG of the newest finished HLS segment's last frame (the server's own view, so no upload)."""
+    """A JPEG of the first frame of the newest finished HLS segment (about 1 s old) (the server's own view, so no upload)."""
     segs = sorted(HLS_DIR.glob("seg*.ts"), key=lambda q: q.stat().st_mtime)
     if len(segs) < 2:
         return None
     seg = segs[-2]                   # the newest one may still be being written
     try:
-        out = subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-sseof", "-0.2", "-i", str(seg),
+        out = subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(seg),
                               "-frames:v", "1", "-vf", f"scale={width}:-2", "-q:v", "6", "-f", "image2", "pipe:1"],
                              capture_output=True, timeout=8)
     except (OSError, subprocess.TimeoutExpired):
