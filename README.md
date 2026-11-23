@@ -16,6 +16,8 @@ A data layer for turning a nuisance plant into paid harvest work and MushPellets
 
 **Tracks:** Beyond English (Sarvam) · Alappuzha Challenge · Beyond the Screen
 
+**Other HackaThoni builds:** see [HACKATHONI_PROJECTS.md](HACKATHONI_PROJECTS.md). Add yours with a pull request.
+
 ## How Sarvam is used
 Five Sarvam models in one loop. Malayalam in, Malayalam out; English only where officials need it.
 
