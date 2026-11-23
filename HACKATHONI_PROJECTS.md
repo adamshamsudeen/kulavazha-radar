@@ -19,11 +19,11 @@ Missing, or got something wrong? Open a pull request that edits this file:
 | Project | Builder | Created (IST) | What it does |
 |---|---|---|---|
 | [glide](https://github.com/fathima-004/glide) | fathima-004 | Sat 7:36 PM | **🥇 1st place** · One-finger touchpad gestures to control a Windows laptop. |
-| [Koode](https://github.com/AravindRKrishnan7/Koode) | AravindRKrishnan7 | Sat 7:16 PM | **🥈 2nd place** · Chrome extension: Malayalam voice helper for using websites. |
+| [hackathoni-companion](https://github.com/arice77/hackathoni-companion) | arice77 | Sat 7:12 PM | **🥈 2nd place** · Malayalam voice helper that points at the next button to click, for people new to computers. |
 | [hyacinth](https://github.com/JakeOJeff/hyacinth) | JakeOJeff | Sun 5:42 AM | **🥉 3rd place** · Forecasts where water hyacinth will block Vembanad Lake, 72 hours ahead. |
 | [HACKATHONIYASH](https://github.com/Yashas95/HACKATHONIYASH) | Yashas95 | Sat 6:59 PM | EdgeGuard AI: spots people crossing the beach or jetty safety line and warns them aloud in their language. |
 | [backwater-trace](https://github.com/javaadde/backwater-trace) | javaadde | Sat 7:07 PM | Maps different people's reports of the same flooded road in Alappuzha, with Malayalam voice reports. |
-| [hackathoni-companion](https://github.com/arice77/hackathoni-companion) | arice77 | Sat 7:12 PM | Malayalam voice helper that points at the next button to click, for people new to computers. |
+| [Koode](https://github.com/AravindRKrishnan7/Koode) | AravindRKrishnan7 | Sat 7:16 PM | Chrome extension: Malayalam voice helper for using websites. |
 | [hackathoni](https://github.com/annmariatech/hackathoni) | annmariatech | Sat 7:18 PM | No description in the README yet. |
 | [PocketSRE](https://github.com/ivin-titus/PocketSRE) | ivin-titus | Sat 7:29 PM | Voice-driven on-call helper for engineers fixing server outages. |
 | [Naam](https://github.com/MENB2004/Naam) | MENB2004 | Sat 7:33 PM | Malayalam-first platform for reporting local environmental issues. |
